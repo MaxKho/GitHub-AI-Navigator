@@ -3,74 +3,107 @@
 <head>
   <title>Github AI Navigator</title>
   <link rel="stylesheet" href="styles.css">
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js"></script>
 </head>
 <body>
   <div class="container">
     <!-- Header -->
     <div class="header">
-      <div class="logo">D</div>
+      <div class="logo">🚀</div>
       <div class="title">Github AI Navigator</div>
     </div>
 
-    <!-- Initial State -->
-    <div id="initial-state" class="state active">
-      <input type="text" class="url-input" placeholder="https://github.com/user/repo" id="repo-url">
-      <button class="btn btn-primary" id="generate-btn">Generate Summary</button>
-      <div class="divider"><span>or</span></div>
-      <input type="text" class="url-input" placeholder="supreme-banana-john" id="repo-owner">
-      <button class="btn btn-secondary" id="github-login-btn">
-        Connect
-      </button>
+    <!-- Navigation Tabs -->
+    <div class="tab-container">
+      <button class="tab-btn active" data-tab="analyze">Analyze</button>
+      <button class="tab-btn" data-tab="query">Query</button>
+      <button class="tab-btn" data-tab="search">Search</button>
+      <button class="tab-btn" data-tab="tree">Tree View</button>
     </div>
 
-    <!-- Connected State -->
-    <div id="connected-state" class="state">
-      <button class="back-btn" id="back-to-initial">&times;</button>
-      <div class="status">
-        <div class="status-dot"></div>
-        Connected to GitHub
-      </div>
+    <!-- Analyze Tab -->
+    <div id="analyze-tab" class="tab-content active">
       <div class="form-group">
-        <label>Select Repository</label>
-        <select class="select" id="repo-select">
-          <option value="">Choose a repository...</option>
-          <option value="repo1">my-awesome-project</option>
-          <option value="repo2">react-dashboard</option>
-          <option value="repo3">api-service</option>
+        <label>GitHub Repository URL</label>
+        <input type="text" class="url-input" placeholder="https://github.com/user/repo" id="github-url">
+      </div>
+      <button class="btn btn-primary" id="process-btn">Process Repository</button>
+
+      <div id="analyze-status" class="status-area"></div>
+      <div id="analyze-results" class="results-area"></div>
+    </div>
+
+    <!-- Query Tab -->
+    <div id="query-tab" class="tab-content">
+      <div class="form-group">
+        <label>Repository URL</label>
+        <input type="text" class="url-input" placeholder="https://github.com/user/repo" id="query-repo-url">
+      </div>
+
+      <div class="form-group">
+        <label>Question</label>
+        <textarea class="textarea" placeholder="Ask about the repository..." id="question" rows="3"></textarea>
+      </div>
+
+      <div class="form-group">
+        <label>Model</label>
+        <select class="select" id="model-select">
+          <option value="gpt-4">GPT-4</option>
+          <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+          <option value="claude-3-haiku">Claude 3 Haiku</option>
         </select>
       </div>
-      <div class="checkbox-group">
-        <input type="checkbox" class="checkbox" id="all-repos">
-        <label for="all-repos">Summarize all repositories</label>
-      </div>
-      <button class="btn btn-primary" id="view-summaries-btn">View Summaries</button>
+
+      <button class="btn btn-primary" id="query-btn">Ask Question</button>
+
+      <div id="query-status" class="status-area"></div>
+      <div id="query-results" class="results-area"></div>
     </div>
 
-    <!-- Summary State -->
-    <div id="summary-state" class="state">
-      <button class="back-btn" id="back-to-connected">&times;</button>
-      <div class="search-container">
-        <input type="text" class="search-input" placeholder="Search repositories or keywords..." id="search-input">
+    <!-- Search Tab -->
+    <div id="search-tab" class="tab-content">
+      <div class="form-group">
+        <label>Repository URL</label>
+        <input type="text" class="url-input" placeholder="https://github.com/user/repo" id="search-repo-url">
       </div>
-      <div class="summary-list" id="summary-list">
-        <!-- Summary items dynamically inserted -->
+
+      <div class="form-group">
+        <label>Search Query</label>
+        <input type="text" class="search-input" placeholder="Search for functions..." id="search-query">
       </div>
+
+      <button class="btn btn-primary" id="search-btn">Search Functions</button>
+
+      <div id="search-status" class="status-area"></div>
+      <div id="search-results" class="results-area"></div>
+    </div>
+
+    <!-- Tree View Tab -->
+    <div id="tree-tab" class="tab-content">
+      <div class="form-group">
+        <label>Repository Structure</label>
+        <button class="btn btn-secondary" id="refresh-tree-btn">Refresh Tree</button>
+      </div>
+
       <div class="tree-container">
         <div class="tree-title">Repository Structure</div>
-        <div class="mermaid" id="tree-diagram"></div>
+        <div id="tree-diagram" class="mermaid-container"></div>
       </div>
+
+      <div id="tree-status" class="status-area"></div>
     </div>
 
-    <!-- Loading State -->
-    <div id="loading-state" class="state">
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay hidden">
       <div class="loading">
         <div class="spinner"></div>
-        Generating summary...
+        <div>Processing...</div>
       </div>
     </div>
   </div>
 
-  <script src="popup.js"></script>
+  <script src="mermaid-utils.js"></script>
+  <script src="api-client.js"></script>
+  <script src="popup-enhanced.js"></script>
 </body>
 </html>

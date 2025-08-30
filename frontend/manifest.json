@@ -8,8 +8,13 @@
     "tabs",
     "storage"
   ],
+  "host_permissions": [
+    "https://github.com/*",
+    "https://api.github.com/*"
+  ],
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_title": "Repository Analyser"
   },
   "background": {
     "service_worker": "scripts/background.js",

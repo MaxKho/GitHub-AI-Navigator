@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Github AI Navigator - Introduction</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #e5e5e5;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .container {
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .slides-wrapper {
+            width: 100%;
+            max-width: 800px;
+            height: 600px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .slide {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 60px 40px;
+            opacity: 0;
+            transform: translateX(100px);
+            transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .slide.active {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .slide.prev {
+            opacity: 0;
+            transform: translateX(-100px);
+        }
+
+        .slide h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, #ffffff, #a0a0a0);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .slide h2 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: #ffffff;
+        }
+
+        .slide p {
+            font-size: 1.2rem;
+            line-height: 1.6;
+            color: #a0a0a0;
+            margin-bottom: 2rem;
+            max-width: 600px;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+            width: 100%;
+        }
+
+        .feature-card {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: left;
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover {
+            border-color: #555;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+
+        .feature-card h3 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 0.5rem;
+        }
+
+        .feature-card p {
+            font-size: 1rem;
+            color: #a0a0a0;
+            margin: 0;
+        }
+
+        .mockup {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .mockup-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #333;
+        }
+
+        .mockup-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #555;
+        }
+
+        .mockup-content {
+            font-size: 0.9rem;
+            color: #a0a0a0;
+        }
+
+        .button {
+            background: #ffffff;
+            color: #000000;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .button:hover {
+            background: #e5e5e5;
+            transform: translateY(-1px);
+        }
+
+        .button-secondary {
+            background: transparent;
+            color: #ffffff;
+            border: 1px solid #333;
+        }
+
+        .button-secondary:hover {
+            background: #1a1a1a;
+            border-color: #555;
+        }
+
+        .navigation {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .nav-button {
+            background: #333;
+            color: #ffffff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .nav-button:hover:not(:disabled) {
+            background: #555;
+        }
+
+        .nav-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .progress-bar {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .progress-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #333;
+            transition: all 0.3s ease;
+        }
+
+        .progress-dot.active {
+            background: #ffffff;
+        }
+
+        .step-list {
+            text-align: left;
+            max-width: 500px;
+        }
+
+        .step-list li {
+            margin: 1rem 0;
+            padding-left: 1.5rem;
+            position: relative;
+            color: #a0a0a0;
+        }
+
+        .step-list li::before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: #ffffff;
+            font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            .slide {
+                padding: 40px 20px;
+            }
+
+            .slide h1 {
+                font-size: 2.5rem;
+            }
+
+            .slide h2 {
+                font-size: 2rem;
+            }
+
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="slides-wrapper">
+            <!-- Slide 1: Welcome -->
+            <div class="slide active" data-slide="0">
+                <h1>Github AI Navigator</h1>
+                <p>Intelligently summarize and explore your GitHub repositories with AI-powered insights. Navigate through complex codebases effortlessly.</p>
+                <div class="mockup">
+                    <div class="mockup-header">
+                        <div class="mockup-dot"></div>
+                        <div class="mockup-dot"></div>
+                        <div class="mockup-dot"></div>
+                    </div>
+                    <div class="mockup-content">
+                        <div style="margin-bottom: 1rem;">
+                            <strong style="color: #fff;">🚀 Github AI Navigator</strong>
+                        </div>
+                        <div style="margin-bottom: 0.5rem;">📊 Generate Summary</div>
+                        <div style="margin-bottom: 0.5rem;">🔍 Search Repositories</div>
+                        <div>🌳 View Repository Tree</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slide 2: Getting Started -->
+            <div class="slide" data-slide="1">
+                <h2>Getting Started</h2>
+                <p>Start exploring repositories immediately, or connect your GitHub account for enhanced features.</p>
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <h3>🔗 Quick Start</h3>
+                        <p>Paste any GitHub repository URL and get instant AI-powered summaries without signing in.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h3>🔐 GitHub Integration</h3>
+                        <p>Connect your GitHub account to access private repositories and enhanced features.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slide 3: Repository Analysis -->
+            <div class="slide" data-slide="2">
+                <h2>AI-Powered Analysis</h2>
+                <p>Our AI analyzes your repositories to provide comprehensive summaries and insights.</p>
+                <ul class="step-list">
+                    <li>Code structure and architecture analysis</li>
+                    <li>Technology stack identification</li>
+                    <li>Key functionality summaries</li>
+                    <li>Documentation and README insights</li>
+                    <li>Dependency analysis and recommendations</li>
+                </ul>
+            </div>
+
+            <!-- Slide 4: Search & Navigation -->
+            <div class="slide" data-slide="3">
+                <h2>Smart Search</h2>
+                <p>Find exactly what you're looking for with intelligent search and visual repository trees.</p>
+                <div class="mockup">
+                    <div class="mockup-header">
+                        <div class="mockup-dot"></div>
+                        <div class="mockup-dot"></div>
+                        <div class="mockup-dot"></div>
+                    </div>
+                    <div class="mockup-content">
+                        <div style="background: #333; padding: 0.5rem; border-radius: 4px; margin-bottom: 1rem;">
+                            🔍 Search repositories or keywords...
+                        </div>
+                        <div style="font-family: monospace; font-size: 0.8rem;">
+                            📁 my-project/<br>
+                            ├── 📁 src/<br>
+                            │   ├── 📄 index.js<br>
+                            │   └── 📄 utils.js<br>
+                            └── 📄 README.md
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slide 5: Features Overview -->
+            <div class="slide" data-slide="4">
+                <h2>Powerful Features</h2>
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <h3>🤖 AI Summaries</h3>
+                        <p>Get intelligent summaries of repository structure, purpose, and key components.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h3>🌳 Visual Trees</h3>
+                        <p>Interactive repository trees with Mermaid diagrams for better understanding.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h3>🔍 Keyword Search</h3>
+                        <p>Search through summaries and find repositories by technology or functionality.</p>
+                    </div>
+                    <div class="feature-card">
+                        <h3>⚡ Fast Access</h3>
+                        <p>Quick access from any GitHub page with our Chrome extension.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slide 6: Ready to Start -->
+            <div class="slide" data-slide="5">
+                <h2>Ready to Navigate?</h2>
+                <p>Start exploring your repositories with AI-powered insights. Click the extension icon in your browser toolbar to begin.</p>
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button class="button" id="getStartedBtn">Get Started</button>
+                    <a href="#" class="button button-secondary">Learn More</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="navigation">
+            <button class="nav-button" id="prevBtn">Previous</button>
+            <div class="progress-bar">
+                <div class="progress-dot active"></div>
+                <div class="progress-dot"></div>
+                <div class="progress-dot"></div>
+                <div class="progress-dot"></div>
+                <div class="progress-dot"></div>
+                <div class="progress-dot"></div>
+            </div>
+            <button class="nav-button" id="nextBtn">Next</button>
+        </div>
+    </div>
+
+    <script src="onboarding.js"></script>
+</body>
+</html>

@@ -1,20 +1,19 @@
 /// <reference types="chrome"/>
 
-const BASE_URL = ""
+chrome.runtime.onInstalled.addListener(async ({ reason }) => {
+  if (reason === 'install') {
+    chrome.tabs.create({
+      url: 'onboarding.html'
+    })
+  }
 
-async function searchSummaries(query) {
-  fetch(`${BASE_URL}/search/summaries/${query}`)
-}
-
-async function generateTree(treeJson) {
-  const tree = JSON.parse(treeJson)
-}
-
-chrome.runtime.onInstalled.addListener(async () => {
   chrome.contextMenus.create({
-    id: "Test",
-    title: "Test Context Menu",
-    type: "normal",
-    contexts: ['link', 'page']
-  })
+    id: "open-popup",
+    title: "Open Github AI Navigator",
+    contexts: ["browser_action"]
+  });
+
+  chrome.contextMenus.onClicked.addListener(() => {
+    chrome.action.openPopup();
+  });
 })
