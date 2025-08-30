@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Github AI Navigator</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="logo">D</div>
+      <div class="title">Github AI Navigator</div>
+    </div>
+
+    <!-- Initial State -->
+    <div id="initial-state" class="state active">
+      <input type="text" class="url-input" placeholder="https://github.com/user/repo" id="repo-url">
+      <button class="btn btn-primary" id="generate-btn">Generate Summary</button>
+      <div class="divider"><span>or</span></div>
+      <input type="text" class="url-input" placeholder="supreme-banana-john" id="repo-owner">
+      <button class="btn btn-secondary" id="github-login-btn">
+        Connect
+      </button>
+    </div>
+
+    <!-- Connected State -->
+    <div id="connected-state" class="state">
+      <button class="back-btn" id="back-to-initial">&times;</button>
+      <div class="status">
+        <div class="status-dot"></div>
+        Connected to GitHub
+      </div>
+      <div class="form-group">
+        <label>Select Repository</label>
+        <select class="select" id="repo-select">
+          <option value="">Choose a repository...</option>
+          <option value="repo1">my-awesome-project</option>
+          <option value="repo2">react-dashboard</option>
+          <option value="repo3">api-service</option>
+        </select>
+      </div>
+      <div class="checkbox-group">
+        <input type="checkbox" class="checkbox" id="all-repos">
+        <label for="all-repos">Summarize all repositories</label>
+      </div>
+      <button class="btn btn-primary" id="view-summaries-btn">View Summaries</button>
+    </div>
+
+    <!-- Summary State -->
+    <div id="summary-state" class="state">
+      <button class="back-btn" id="back-to-connected">&times;</button>
+      <div class="search-container">
+        <input type="text" class="search-input" placeholder="Search repositories or keywords..." id="search-input">
+      </div>
+      <div class="summary-list" id="summary-list">
+        <!-- Summary items dynamically inserted -->
+      </div>
+      <div class="tree-container">
+        <div class="tree-title">Repository Structure</div>
+        <div class="mermaid" id="tree-diagram"></div>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loading-state" class="state">
+      <div class="loading">
+        <div class="spinner"></div>
+        Generating summary...
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

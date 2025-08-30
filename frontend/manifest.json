@@ -1,0 +1,21 @@
+{
+  "$schema": "https://www.schemastore.org/chrome-manifest",
+  "name": "Github-AI-Navigator",
+  "version": "1.0",
+  "manifest_version": 3,
+  "permissions": [
+    "contextMenus",
+    "tabs",
+    "storage"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "scripts/background.js",
+    "type": "module"
+  },
+  "omnibox": {
+    "keyword": "github"
+  }
+}
