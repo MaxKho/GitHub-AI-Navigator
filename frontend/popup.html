@@ -1,178 +1,541 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Github AI Navigator</title>
-  <link rel="stylesheet" href="styles.css">
-  <script src="libs/mermaid.min.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub AI Navigator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 380px;
+            min-height: 500px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: #fafafa;
+            color: #171717;
+            line-height: 1.5;
+            font-size: 14px;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        /* Header */
+        .header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e5e5e5;
+            background: #ffffff;
+        }
+
+        .header h1 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #171717;
+            margin-bottom: 4px;
+        }
+
+        .header p {
+            font-size: 13px;
+            color: #737373;
+        }
+
+        /* Tab Navigation */
+        .tab-nav {
+            display: flex;
+            border-bottom: 1px solid #e5e5e5;
+            background: #ffffff;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 12px 8px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 500;
+            color: #737373;
+            cursor: pointer;
+            border: none;
+            background: none;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .tab-btn.active {
+            color: #171717;
+            border-bottom-color: #171717;
+        }
+
+        .tab-btn:hover {
+            color: #171717;
+        }
+
+        /* Tab Content */
+        .tab-content {
+            display: none;
+            padding: 20px;
+            flex: 1;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 16px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: #404040;
+            margin-bottom: 6px;
+        }
+
+        .input, .select, .textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #d4d4d4;
+            border-radius: 6px;
+            font-size: 14px;
+            background: #ffffff;
+            transition: border-color 0.2s ease;
+        }
+
+        .input:focus, .select:focus, .textarea:focus {
+            outline: none;
+            border-color: #0070f3;
+            box-shadow: 0 0 0 3px rgba(0, 112, 243, 0.1);
+        }
+
+        .textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 16px;
+            border: 1px solid #d4d4d4;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            background: #ffffff;
+            color: #171717;
+            text-decoration: none;
+        }
+
+        .btn:hover {
+            border-color: #a3a3a3;
+        }
+
+        .btn:disabled {
+            background: #f5f5f5;
+            color: #a3a3a3;
+            cursor: not-allowed;
+        }
+
+        .btn-primary {
+            background: #171717;
+            color: #ffffff;
+            border-color: #171717;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #404040;
+            border-color: #404040;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+
+        /* Repository Selection */
+        .repo-selection {
+            display: none;
+            margin-top: 16px;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .checkbox {
+            width: 16px;
+            height: 16px;
+        }
+
+        .checkbox-group label {
+            font-size: 14px;
+            color: #404040;
+            margin: 0;
+        }
+
+        /* Status */
+        .status {
+            padding: 8px 12px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            font-size: 13px;
+        }
+
+        .status-info {
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            color: #0c4a6e;
+        }
+
+        .status-success {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            color: #166534;
+        }
+
+        .status-error {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+        }
+
+        /* Results */
+        .results {
+            margin-top: 16px;
+            padding: 16px;
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+            background: #ffffff;
+        }
+
+        .results h3 {
+            margin-bottom: 12px;
+            font-size: 16px;
+            color: #171717;
+        }
+
+        .results pre {
+            background: #f8f9fa;
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 13px;
+        }
+
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .loading-overlay.hidden {
+            display: none;
+        }
+
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 2px solid #e5e5e5;
+            border-top: 2px solid #171717;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 12px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Tree Diagram */
+        .tree-diagram {
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+            padding: 16px;
+            background: #ffffff;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #737373;
+        }
+
+        /* Summary List */
+        .summary-list {
+            margin-bottom: 20px;
+        }
+
+        .summary-item {
+            padding: 12px;
+            border: 1px solid #e5e5e5;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            background: #ffffff;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .summary-item:hover {
+            background: #f9f9f9;
+        }
+
+        .summary-item.selected {
+            background: #f0f9ff;
+            border-color: #0070f3;
+        }
+
+        .summary-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .summary-header h4 {
+            font-weight: 500;
+            color: #171717;
+        }
+
+        .summary-meta {
+            display: flex;
+            gap: 8px;
+            font-size: 12px;
+            color: #737373;
+        }
+
+        .summary-description {
+            font-size: 13px;
+            color: #737373;
+            margin-bottom: 8px;
+        }
+
+        .summary-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        /* Filter Tabs */
+        .filter-tabs {
+            display: flex;
+            border-bottom: 1px solid #e5e5e5;
+            margin-bottom: 16px;
+        }
+
+        .filter-tab {
+            flex: 1;
+            padding: 8px 12px;
+            text-align: center;
+            font-size: 13px;
+            font-weight: 500;
+            color: #737373;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .filter-tab.active {
+            color: #171717;
+            border-bottom-color: #171717;
+        }
+
+        .filter-tab:hover {
+            color: #171717;
+        }
+
+        /* Search */
+        .search-container {
+            margin-bottom: 16px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #d4d4d4;
+            border-radius: 6px;
+            font-size: 14px;
+            background: #ffffff;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: #0070f3;
+            box-shadow: 0 0 0 3px rgba(0, 112, 243, 0.1);
+        }
+
+        /* No Results */
+        .no-results {
+            text-align: center;
+            padding: 40px 20px;
+            color: #737373;
+            font-size: 14px;
+        }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <!-- Header -->
-    <div class="header">
-      <div class="logo">G</div>
-      <div class="title">Github AI Navigator</div>
-    </div>
-
-    <!-- Navigation Tabs -->
-    <div class="tab-container">
-      <button class="tab-btn active" data-tab="analyze">Analyze</button>
-      <button class="tab-btn" data-tab="query">Query</button>
-      <button class="tab-btn" data-tab="search">Search</button>
-      <button class="tab-btn" data-tab="tree">Tree View</button>
-    </div>
-
-    <!-- Analyze Tab -->
-    <div id="analyze-tab" class="tab-content active">
-      <!-- Option 1: Direct URL Input -->
-      <div class="input-method" id="url-method">
-        <div class="form-group">
-          <label>GitHub Repository URL</label>
-          <input type="text" class="url-input" placeholder="https://github.com/user/repo" id="github-url">
-        </div>
-        <button class="btn btn-primary" id="process-single-btn">Process Repository</button>
-      </div>
-
-      <div class="divider"><span>or</span></div>
-
-      <!-- Option 2: Username-based Selection -->
-      <div class="input-method" id="username-method">
-        <div class="form-group">
-          <label>GitHub Username</label>
-          <input type="text" class="url-input" placeholder="Enter GitHub username" id="github-username">
-          <button class="btn btn-secondary" id="fetch-repos-btn">Fetch Repositories</button>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>GitHub AI Navigator</h1>
+            <p>Analyze and explore repositories with AI</p>
         </div>
 
-        <!-- Repository Selection (hidden initially) -->
-        <div class="repo-selection" id="repo-selection" style="display: none;">
-          <div class="form-group">
-            <label>Select Repository</label>
-            <select class="select" id="repo-select">
-              <option value="">Choose a repository...</option>
-            </select>
-          </div>
-
-          <div class="checkbox-group">
-            <input type="checkbox" class="checkbox" id="all-repos">
-            <label for="all-repos">Summarize all repositories</label>
-          </div>
-
-          <button class="btn btn-primary" id="process-selected-btn">Process Selected</button>
-        </div>
-      </div>
-
-      <div id="analyze-status" class="status-area"></div>
-      <div id="analyze-results" class="results-area"></div>
-    </div>
-
-    <!-- Summary View Tab (New) -->
-    <div id="summary-view-tab" class="tab-content">
-      <div class="summary-header">
-        <button class="back-btn" id="back-to-analyze">&times;</button>
-        <h3>Repository Summaries</h3>
-      </div>
-
-      <div class="search-container">
-        <input type="text" class="search-input" placeholder="Search repositories or keywords..." id="summary-search-input">
-      </div>
-
-      <!-- Filter Tabs -->
-      <div class="filter-tabs">
-        <button class="filter-tab active" data-filter="all">All Repos</button>
-        <button class="filter-tab" data-filter="recent">Recent</button>
-        <button class="filter-tab" data-filter="favorites">Favorites</button>
-        <button class="filter-tab" data-filter="keywords">By Keywords</button>
-      </div>
-
-      <!-- Summary List -->
-      <div class="summary-list" id="summary-list">
-        <!-- Summary items will be inserted here -->
-      </div>
-
-      <!-- Selected Repository Details -->
-      <div class="repo-details" id="repo-details" style="display: none;">
-        <div class="details-header">
-          <h4 id="selected-repo-name">Repository Details</h4>
-          <button class="btn btn-secondary btn-small" id="ask-question-btn">Ask Question</button>
+        <!-- Tab Navigation -->
+        <div class="tab-nav">
+            <button class="tab-btn active" data-tab="analyze">Analyze</button>
+            <button class="tab-btn" data-tab="summary-view">Summaries</button>
+            <button class="tab-btn" data-tab="query">Query</button>
+            <button class="tab-btn" data-tab="search">Search</button>
+            <button class="tab-btn" data-tab="tree">Tree</button>
         </div>
 
-        <div class="tree-container">
-          <div class="tree-title">Repository Structure</div>
-          <div id="summary-tree-diagram" class="mermaid-container"></div>
+        <!-- Analyze Tab -->
+        <div id="analyze-tab" class="tab-content active">
+            <div class="form-group">
+                <label>Repository URL</label>
+                <input type="text" class="input" id="github-url" placeholder="https://github.com/user/repo">
+            </div>
+            <button class="btn btn-primary" id="process-single-btn">Process Repository</button>
+
+            <div style="margin: 20px 0; text-align: center; color: #737373;">or</div>
+
+            <div class="form-group">
+                <label>GitHub Username</label>
+                <input type="text" class="input" id="github-username" placeholder="Enter username">
+            </div>
+            <button class="btn" id="fetch-repos-btn">Fetch Repositories</button>
+
+            <div id="repo-selection" class="repo-selection">
+                <div class="form-group">
+                    <label>Select Repository</label>
+                    <select class="select" id="repo-select">
+                        <option value="">Choose a repository...</option>
+                    </select>
+                </div>
+
+                <div class="checkbox-group">
+                    <input type="checkbox" class="checkbox" id="all-repos">
+                    <label for="all-repos">Process all repositories</label>
+                </div>
+
+                <button class="btn btn-primary" id="process-selected-btn" disabled>Process Selected</button>
+            </div>
+
+            <div id="analyze-status"></div>
+            <div id="analyze-results"></div>
         </div>
-      </div>
-    </div>
 
-    <!-- Query Tab -->
-    <div id="query-tab" class="tab-content">
-      <div class="form-group">
-        <label>Repository URL</label>
-        <input type="text" class="url-input" placeholder="https://github.com/user/repo" id="query-repo-url">
-      </div>
+        <!-- Summary View Tab -->
+        <div id="summary-view-tab" class="tab-content">
+            <div class="search-container">
+                <input type="text" class="search-input" placeholder="Search repositories..." id="summary-search-input">
+            </div>
 
-      <div class="form-group">
-        <label>Question</label>
-        <textarea class="textarea" placeholder="Ask about the repository..." id="question" rows="3"></textarea>
-      </div>
+            <div class="filter-tabs">
+                <div class="filter-tab active" data-filter="all">All</div>
+                <div class="filter-tab" data-filter="recent">Recent</div>
+                <div class="filter-tab" data-filter="favorites">Favorites</div>
+            </div>
 
-      <div class="form-group">
-        <label>Model</label>
-        <select class="select" id="model-select">
-          <option value="gpt-4">GPT-4</option>
-          <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-          <option value="claude-3-haiku">Claude 3 Haiku</option>
-        </select>
-      </div>
+            <div class="summary-list" id="summary-list">
+                <div class="no-results">No repositories processed yet</div>
+            </div>
 
-      <button class="btn btn-primary" id="query-btn">Ask Question</button>
+            <div id="repo-details" style="display: none;">
+                <h3 id="selected-repo-name">Repository Details</h3>
+                <div class="tree-diagram" id="summary-tree-diagram">
+                    Select a repository to view its structure
+                </div>
+            </div>
+        </div>
 
-      <div id="query-status" class="status-area"></div>
-      <div id="query-results" class="results-area"></div>
-    </div>
+        <!-- Query Tab -->
+        <div id="query-tab" class="tab-content">
+            <div class="form-group">
+                <label>Repository URL</label>
+                <input type="text" class="input" id="query-repo-url" placeholder="https://github.com/user/repo">
+            </div>
 
-    <!-- Search Tab -->
-    <div id="search-tab" class="tab-content">
-      <div class="form-group">
-        <label>Repository URL</label>
-        <input type="text" class="url-input" placeholder="https://github.com/user/repo" id="search-repo-url">
-      </div>
+            <div class="form-group">
+                <label>Your Question</label>
+                <textarea class="textarea" id="question" placeholder="Ask a question about the repository..."></textarea>
+            </div>
 
-      <div class="form-group">
-        <label>Search Query</label>
-        <input type="text" class="search-input" placeholder="Search for functions..." id="search-query">
-      </div>
+            <div class="form-group">
+                <label>AI Model</label>
+                <select class="select" id="model-select">
+                    <option value="gpt-5-mini">GPT-5 mini</option>
+                    <option value="gpt-4">GPT-4</option>
+                    <option value="claude-3-haiku">Claude 3 Haiku</option>
+                    <option value="claude-3-sonnet">Claude 3 Sonnet</option>
+                </select>
+            </div>
 
-      <button class="btn btn-primary" id="search-btn">Search Functions</button>
+            <button class="btn btn-primary" id="query-btn">Ask Question</button>
 
-      <div id="search-status" class="status-area"></div>
-      <div id="search-results" class="results-area"></div>
-    </div>
+            <div id="query-status"></div>
+            <div id="query-results"></div>
+        </div>
 
-    <!-- Tree View Tab -->
-    <div id="tree-tab" class="tab-content">
-      <div class="form-group">
-        <label>Repository Structure</label>
-        <button class="btn btn-secondary" id="refresh-tree-btn">Refresh Tree</button>
-      </div>
+        <!-- Search Tab -->
+        <div id="search-tab" class="tab-content">
+            <div class="form-group">
+                <label>Repository URL</label>
+                <input type="text" class="input" id="search-repo-url" placeholder="https://github.com/user/repo">
+            </div>
 
-      <div class="tree-container">
-        <div class="tree-title">Repository Structure</div>
-        <div id="tree-diagram" class="mermaid-container"></div>
-      </div>
+            <div class="form-group">
+                <label>Search Query</label>
+                <input type="text" class="input" id="search-query" placeholder="Search for functions, classes, etc.">
+            </div>
 
-      <div id="tree-status" class="status-area"></div>
+            <button class="btn btn-primary" id="search-btn">Search Functions</button>
+
+            <div id="search-status"></div>
+            <div id="search-results"></div>
+        </div>
+
+        <!-- Tree Tab -->
+        <div id="tree-tab" class="tab-content">
+            <button class="btn" id="refresh-tree-btn">Refresh Tree</button>
+
+            <div id="tree-status"></div>
+            <div class="tree-diagram" id="tree-diagram">
+                Select a repository to view its structure
+            </div>
+        </div>
     </div>
 
     <!-- Loading Overlay -->
     <div id="loading-overlay" class="loading-overlay hidden">
-      <div class="loading">
         <div class="spinner"></div>
-        <div>Processing...</div>
-      </div>
+        <div id="loading-text">Processing...</div>
     </div>
-  </div>
-
-  <script src="mermaid.js"></script>
-  <script src="api.js"></script>
-  <script src="popup.js"></script>
+    <script src="api.js"></script>
+    <script src="popup.js"></script>
+    <script src="mermaid.js"></script>
 </body>
 </html>

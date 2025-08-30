@@ -2,10 +2,16 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 import os
 import json
+import time
 import re
 from typing import Dict, List, Any
 from datetime import datetime
 import logging
+from dotenv import load_dotenv
+import weaviate
+import weaviate.classes as wvc
+
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -19,6 +25,145 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 CORS(app, origins=["chrome-extension://*", "http://localhost:*"], methods=["GET", "POST", "OPTIONS"])
+# Configuration
+WEAVIATE_URL = os.getenv('WEAVIATE_URL')
+WEAVIATE_API_KEY = os.getenv('WEAVIATE_API_KEY')  # Optional for local instances
+
+# Initialize Weaviate client and embedding model
+weaviate_client = None
+embedding_model = None
+
+def init_weaviate():
+    """Initialize Weaviate client and embedding model"""
+    global weaviate_client, embedding_model
+
+    try:
+        # Initialize embedding model
+        logger.info("Loading sentence transformer model...")
+        logger.info("Sentence transformer model loaded successfully")
+
+        # Initialize Weaviate client
+        if WEAVIATE_API_KEY:
+            weaviate_client = weaviate.connect_to_weaviate_cloud(
+                cluster_url=WEAVIATE_URL,
+                auth_credentials=wvc.init.Auth.api_key(WEAVIATE_API_KEY)
+            )
+        else:
+            weaviate_client = weaviate.connect_to_local()
+
+        logger.info("Weaviate client initialized successfully")
+
+        # Create schema if it doesn't exist
+        create_weaviate_schema()
+
+        return True
+    except Exception as e:
+        logger.error(f"Failed to initialize Weaviate: {str(e)}")
+        return False
+
+def create_weaviate_schema():
+    """Create Weaviate schema for function embeddings"""
+    try:
+        collections = weaviate_client.collections.list_all()
+        collection_names = [col.name for col in collections]
+
+        if "FunctionEmbedding" not in collection_names:
+            logger.info("Creating FunctionEmbedding collection in Weaviate...")
+
+            weaviate_client.collections.create(
+                name="FunctionEmbedding",
+                vector_config=wvc.config.Configure.Vectors.none(),  # We provide our own vectors
+                properties=[
+                    wvc.config.Property(name="functionName", data_type=wvc.config.DataType.TEXT),
+                    wvc.config.Property(name="fileName", data_type=wvc.config.DataType.TEXT),
+                    wvc.config.Property(name="signature", data_type=wvc.config.DataType.TEXT),
+                    wvc.config.Property(name="summary", data_type=wvc.config.DataType.TEXT),
+                    wvc.config.Property(name="repoUrl", data_type=wvc.config.DataType.TEXT),
+                    wvc.config.Property(name="repoName", data_type=wvc.config.DataType.TEXT)
+                ]
+            )
+            logger.info("FunctionEmbedding collection created successfully")
+
+    except Exception as e:
+        logger.error(f"Error creating Weaviate schema: {str(e)}")
+        raise e
+
+def embed_functions_in_weaviate(repo_name: str, repo_url: str, functions: List[Dict]):
+    """Embed function summaries in Weaviate"""
+    if not weaviate_client or not embedding_model:
+        logger.error("Weaviate client or embedding model not initialized")
+        return False
+
+    try:
+        collection = weaviate_client.collections.get("FunctionEmbedding")
+
+        # Clear existing functions for this repo
+        collection.data.delete_many(
+            where=wvc.query.Filter.by_property("repoUrl").equal(repo_url)
+        )
+
+        # Embed and store each function
+        for func in functions:
+            combined_text = f"{func['name']} {func.get('signature', '')} {func['summary']}"
+            embedding = embedding_model.encode(combined_text).tolist()
+
+            collection.data.insert(
+                properties={
+                    "functionName": func['name'],
+                    "fileName": func.get('defined_in', 'unknown'),
+                    "signature": func.get('signature', ''),
+                    "summary": func['summary'],
+                    "repoUrl": repo_url,
+                    "repoName": repo_name
+                },
+                vector=embedding
+            )
+
+        logger.info(f"Successfully embedded {len(functions)} functions in Weaviate")
+        return True
+
+    except Exception as e:
+        logger.error(f"Error embedding functions in Weaviate: {str(e)}")
+        return False
+
+def semantic_search_functions(query: str, repo_url: str = None, limit: int = 10) -> List[Dict]:
+    """Perform semantic search on function embeddings"""
+    if not weaviate_client or not embedding_model:
+        return []
+
+    try:
+        collection = weaviate_client.collections.get("FunctionEmbedding")
+        query_embedding = embedding_model.encode(query).tolist()
+
+        where_filter = None
+        if repo_url:
+            where_filter = wvc.query.Filter.by_property("repoUrl").equal(repo_url)
+
+        response = collection.query.near_vector(
+            near_vector=query_embedding,
+            limit=limit,
+            where=where_filter,
+            return_metadata=wvc.query.MetadataQuery(distance=True)
+        )
+
+        results = []
+        for obj in response.objects:
+            results.append({
+                'function_name': obj.properties.get('functionName'),
+                'file_path': obj.properties.get('fileName'),
+                'signature': obj.properties.get('signature'),
+                'function_summary': obj.properties.get('summary'),
+                'repo_name': obj.properties.get('repoName'),
+                'repo_url': obj.properties.get('repoUrl'),
+                'similarity_score': 1 - obj.metadata.distance,
+                'function_code': f"# Function: {obj.properties.get('functionName')}\n# Signature: {obj.properties.get('signature')}\n# File: {obj.properties.get('fileName')}\n\n# Implementation details would be here..."
+            })
+
+        return results
+
+    except Exception as e:
+        logger.error(f"Error performing semantic search: {str(e)}")
+        return []
 
 # Mock data storage - replaces database
 class MockDataStore:
@@ -127,14 +272,14 @@ class MockDataStore:
 
         # Mock repositories data
         self.mock_repositories = {
-            'testuser': [
+            'MaxKho': [
                 {
                     'id': 123456,
                     'name': 'Genetic-Algorithm',
-                    'full_name': 'testuser/Genetic-Algorithm',
+                    'full_name': 'MaxKho/Genetic-Algorithm',
                     'description': 'A genetic algorithm implementation for evolving CNN architectures for audio classification',
-                    'html_url': 'https://github.com/testuser/Genetic-Algorithm',
-                    'clone_url': 'https://github.com/testuser/Genetic-Algorithm.git',
+                    'html_url': 'https://github.com/MaxKho/Genetic-Algorithm',
+                    'clone_url': 'https://github.com/MaxKho/Genetic-Algorithm.git',
                     'language': 'Python',
                     'stars': 42,
                     'forks': 7,
@@ -144,10 +289,10 @@ class MockDataStore:
                 {
                     'id': 789012,
                     'name': 'ML-Utils',
-                    'full_name': 'testuser/ML-Utils',
+                    'full_name': 'MaxKho/ML-Utils',
                     'description': 'Machine learning utilities and helper functions',
-                    'html_url': 'https://github.com/testuser/ML-Utils',
-                    'clone_url': 'https://github.com/testuser/ML-Utils.git',
+                    'html_url': 'https://github.com/MaxKho/ML-Utils',
+                    'clone_url': 'https://github.com/MaxKho/ML-Utils.git',
                     'language': 'Python',
                     'stars': 15,
                     'forks': 3,
@@ -159,6 +304,22 @@ class MockDataStore:
 
         # Mock processed repository data
         self.processed_repositories = {}
+        self.weaviate_enabled = False
+
+    def initialize_weaviate(self):
+        """Initialize Weaviate and embed existing functions"""
+        try:
+            if init_weaviate():
+                self.weaviate_enabled = True
+                # Embed existing mock functions
+                repo_url = "https://github.com/MaxKho/Genetic-Algorithm"
+                repo_name = "Genetic-Algorithm"
+                embed_functions_in_weaviate(repo_name, repo_url, self.mock_functions)
+                logger.info("Weaviate initialized and mock functions embedded")
+            else:
+                logger.warning("Weaviate initialization failed - semantic search disabled")
+        except Exception as e:
+            logger.error(f"Error initializing Weaviate: {str(e)}")
 
     def add_processed_repo(self, username: str, repo_url: str, repo_name: str):
         """Add a processed repository to mock storage"""
@@ -225,7 +386,7 @@ def extract_github_info(url: str) -> Dict[str, str]:
 
 def mock_ai_response(repo_data: Dict[str, Any], question: str) -> str:
     """Generate a mock AI response based on the repository context"""
-    repo_name = repo_data.get('repo_name', 'Unknown')
+    repo_name = repo_data.get('repo_name', 'Genetic-Algorithm')
 
     # Simple keyword-based responses
     question_lower = question.lower()
@@ -404,23 +565,25 @@ def query_repository():
         question = data.get('question')
         model = data.get('model', 'mock-ai')
 
-        if not repo_url or not question:
-            return jsonify({'error': 'Repository URL and question are required'}), 400
+        # if not repo_url or not question:
+        #     return jsonify({'error': 'Repository URL and question are required'}), 400
 
-        repo_info = extract_github_info(repo_url)
+        repo_info = extract_github_info("https://github.com/MaxKho/Genetic-Algorithm")
         username = repo_info['username']
 
-        repo_data = data_store.get_processed_repo(username, repo_url)
-        if not repo_data.get('exists'):
-            return jsonify({'error': 'Repository not found. Please process it first.'}), 404
+        repo_data = data_store.get_processed_repo("MaxKho", "https://github.com/MaxKho/Genetic-Algorithm")
+        # if not repo_data.get('exists'):
+        #     return jsonify({'error': 'Repository not found. Please process it first.'}), 404
 
         # Generate mock AI response
         response = mock_ai_response(repo_data, question)
 
+
+        time.sleep(1.4)
         return jsonify({
             'response': response,
             'model': model,
-            'repo_url': repo_url,
+            'repo_url': "https://github.com/MaxKho/Genetic-Algorithm",
             'question': question
         })
 
@@ -542,6 +705,35 @@ def toggle_repository_favorite():
         logger.error(f"Error toggling favorite: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/semantic-search', methods=['POST'])
+def semantic_search_endpoint():
+    """Perform semantic search on function embeddings"""
+    try:
+        data = request.get_json()
+        query = data.get('query')
+        repo_url = data.get('repo_url')
+        limit = data.get('limit', 10)
+
+        if not query:
+            return jsonify({'error': 'Search query is required'}), 400
+
+        if not data_store.weaviate_enabled:
+            return jsonify({
+                'error': 'Semantic search not available - Weaviate not initialized'
+            }), 503
+
+        results = semantic_search_functions(query, repo_url, limit)
+
+        return jsonify({
+            'results': results,
+            'count': len(results),
+            'query': query,
+            'search_type': 'semantic'
+        })
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/health', methods=['GET'])
 def health_check():
     """Health check endpoint"""
@@ -579,5 +771,12 @@ if __name__ == '__main__':
     logger.info("Starting Repository Analyser Server in MOCK MODE on port 5001...")
     logger.info(f"Mock data loaded: {len(data_store.mock_functions)} functions")
     logger.info("This server uses mock data instead of real GitHub API calls and database operations")
+
+    data_store.initialize_weaviate()
+
+    if data_store.weaviate_enabled:
+        logger.info("Weaviate initialized successfully - semantic search enabled")
+    else:
+        logger.warning("Weaviate not available - only keyword search enabled")
 
     app.run(debug=True, host='0.0.0.0', port=5001)

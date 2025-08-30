@@ -1,29 +1,26 @@
-class PopupWithUsername {
-  constructor() {
-    this.mermaidRenderer = null;
-    this.svgTreeGenerator = null;
+// Main Popup Manager
+class PopupManager {
+  constructor(apiClient) {
     this.currentUser = '';
+    this.apiClient = apiClient
     this.currentRepositories = [];
     this.processedSummaries = [];
     this.selectedRepository = null;
-    this.useLocalMermaid = false;
-    this.useSVGRenderer = false;
     this.currentFilter = 'all';
+    this.apiClient = new EnhancedApiClient()
+    this.queryHistory = [
+      {
+        "query": "What is the topic of the repository?",
+        "response": "A PyTorch-based genetic-algorithm project that performs neural architecture search for 1D CNNs to classify vowels from the PCVC speech dataset. It includes data preprocessing (Hann windowing, 48 kHz → 16 kHz resampling, augmentation), GA-driven model search/training (genetic.py), and an evaluation script that loads the best weights (best_net.py → best_net.pth)."
+      },
+      {
+        "query": "What exact genetic algorithm does the repository use?",
+        "response": "A simple generational GA with elitist selection and uniform, position-wise crossover over layer 'genes'. Details: population_size=10, num_generations=4, num_parents=4, mutation_rate=0.2, conv_chance=0.8. Each genome is a sequence of layer genes (either conv: {filters, kernel_size, stride, padding, pool_size, activation} or dense: {neurons, activation, dropout}); layers are kept in conv-before-dense order. Fitness = validation accuracy after short training with Adam (lr=0.001), CrossEntropy, batch_size=16, ~8 epochs, using augmented PCVC slices; validation uses a fixed slice. Selection takes the top-k by fitness (elitism). Crossover mixes per-field values from aligned parent genes and appends any longer parent tail. Mutation perturbs hyperparameters and can add/remove layers (new layers sampled from the blueprint, with conv preferred). Next generation = parents + mutated crossovers until pop size is restored. After 4 generations the best genome is retrained and saved to best_net.pth."
+      }
+    ];
   }
 
   async init() {
-    // Check rendering options
-    if (typeof mermaid !== 'undefined') {
-      this.mermaidRenderer = new MermaidRenderer();
-      await this.mermaidRenderer.init();
-      this.useLocalMermaid = true;
-      console.log('Using local Mermaid renderer');
-    } else if (typeof SVGTreeGenerator !== 'undefined') {
-      this.svgTreeGenerator = new SVGTreeGenerator();
-      this.useSVGRenderer = true;
-      console.log('Using SVG tree generator');
-    }
-
     this.setupEventListeners();
     await this.autoFillFromCurrentTab();
     await this.checkApiHealth();
@@ -35,14 +32,26 @@ class PopupWithUsername {
       btn.addEventListener('click', () => this.switchTab(btn.dataset.tab));
     });
 
-    // Analyze tab buttons
-    document.getElementById('process-single-btn')?.addEventListener('click', () => this.processSingleRepository());
-    document.getElementById('fetch-repos-btn')?.addEventListener('click', () => this.fetchUserRepositories());
-    document.getElementById('process-selected-btn')?.addEventListener('click', () => this.processSelectedRepositories());
+    // Analyze tab
+    document.getElementById('process-single-btn').addEventListener('click', () => this.processSingleRepository());
+    document.getElementById('fetch-repos-btn').addEventListener('click', () => this.fetchUserRepositories());
+    document.getElementById('process-selected-btn').addEventListener('click', () => this.processSelectedRepositories());
 
-    // Summary view buttons
-    document.getElementById('back-to-analyze')?.addEventListener('click', () => this.switchTab('analyze'));
-    document.getElementById('ask-question-btn')?.addEventListener('click', () => this.switchToQueryTab());
+    // Query tab
+    document.getElementById('query-btn').addEventListener('click', () => this.queryRepository());
+
+    // Search tab
+    document.getElementById('search-btn').addEventListener('click', () => this.searchFunctions());
+
+    // Tree tab
+    document.getElementById('refresh-tree-btn').addEventListener('click', () => this.refreshTree());
+
+    // Repository selection
+    document.getElementById('repo-select').addEventListener('change', () => this.toggleProcessButton());
+    document.getElementById('all-repos').addEventListener('change', (e) => {
+      document.getElementById('repo-select').disabled = e.target.checked;
+      this.toggleProcessButton();
+    });
 
     // Filter tabs
     document.querySelectorAll('.filter-tab').forEach(tab => {
@@ -50,36 +59,8 @@ class PopupWithUsername {
     });
 
     // Search functionality
-    document.getElementById('summary-search-input')?.addEventListener('input', (e) => {
+    document.getElementById('summary-search-input').addEventListener('input', (e) => {
       this.filterSummaries(e.target.value);
-    });
-
-    // Other existing buttons
-    document.getElementById('query-btn')?.addEventListener('click', () => this.queryRepository());
-    document.getElementById('search-btn')?.addEventListener('click', () => this.searchFunctions());
-    document.getElementById('refresh-tree-btn')?.addEventListener('click', () => this.refreshTree());
-
-    // Enter key support
-    document.getElementById('github-url')?.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') this.processSingleRepository();
-    });
-
-    document.getElementById('github-username')?.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') this.fetchUserRepositories();
-    });
-
-    // Repository selection change
-    document.getElementById('repo-select')?.addEventListener('change', (e) => {
-      this.toggleProcessButton();
-    });
-
-    // All repos checkbox
-    document.getElementById('all-repos')?.addEventListener('change', (e) => {
-      const selectElement = document.getElementById('repo-select');
-      if (selectElement) {
-        selectElement.disabled = e.target.checked;
-      }
-      this.toggleProcessButton();
     });
 
     // URL synchronization
@@ -90,6 +71,23 @@ class PopupWithUsername {
           this.syncUrls(e.target.value);
         });
       }
+    });
+
+    // Enter key support
+    document.getElementById('github-url').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') this.processSingleRepository();
+    });
+
+    document.getElementById('github-username').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') this.fetchUserRepositories();
+    });
+
+    document.getElementById('question').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && e.ctrlKey) this.queryRepository();
+    });
+
+    document.getElementById('search-query').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') this.searchFunctions();
     });
   }
 
@@ -103,40 +101,30 @@ class PopupWithUsername {
     document.querySelectorAll('.tab-content').forEach(content => {
       content.classList.toggle('active', content.id === `${tabName}-tab`);
     });
-
-    // Special handling
-    if (tabName === 'tree' && this.selectedRepository) {
-      setTimeout(() => this.renderRepositoryTree(), 100);
-    }
   }
 
-  /**
-   * @param {string} filter
-   */
   switchFilter(filter) {
     this.currentFilter = filter;
-
-    // Update filter tabs
     document.querySelectorAll('.filter-tab').forEach(tab => {
       tab.classList.toggle('active', tab.dataset.filter === filter);
     });
-
     this.displaySummaries();
   }
 
   async autoFillFromCurrentTab() {
     try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-      if (tab.url && tab.url.includes('github.com')) {
-        const urlParts = new URL(tab.url).pathname.split('/').filter(Boolean);
-        if (urlParts.length >= 1) {
-          // Auto-fill username if we can extract it
-          const usernameInput = document.getElementById('github-username');
-          if (usernameInput && !usernameInput.value) {
-            usernameInput.value = urlParts[0];
+      if (typeof chrome !== 'undefined' && chrome.tabs) {
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (tab.url && tab.url.includes('github.com')) {
+          const urlParts = new URL(tab.url).pathname.split('/').filter(Boolean);
+          if (urlParts.length >= 1) {
+            const usernameInput = document.getElementById('github-username');
+            if (usernameInput && !usernameInput.value) {
+              usernameInput.value = urlParts[0];
+            }
           }
+          this.syncUrls(tab.url);
         }
-        this.syncUrls(tab.url);
       }
     } catch (error) {
       console.log('Could not get current tab URL:', error);
@@ -160,12 +148,12 @@ class PopupWithUsername {
       }
     } catch (error) {
       console.error('Health check failed:', error);
+      this.showGlobalStatus('Could not connect to API server', 'error');
     }
   }
 
-  // Process single repository from URL
   async processSingleRepository() {
-    const githubUrl = document.getElementById('github-url')?.value.trim();
+    const githubUrl = document.getElementById('github-url').value.trim();
 
     if (!githubUrl) {
       this.showStatus('analyze-status', 'Please enter a GitHub repository URL', 'error');
@@ -191,13 +179,6 @@ class PopupWithUsername {
 
       this.showResults('analyze-results', this.formatRepositoryResult(result.data || result));
 
-      // Switch to summary view if we processed multiple repos
-      if (result.repositories && result.repositories.length > 1) {
-        this.processedSummaries = result.repositories;
-        this.switchTab('summary-view');
-        this.displaySummaries();
-      }
-
     } catch (error) {
       this.showStatus('analyze-status', `Error: ${error.message}`, 'error');
     } finally {
@@ -205,9 +186,8 @@ class PopupWithUsername {
     }
   }
 
-  // Fetch user repositories
   async fetchUserRepositories() {
-    const username = document.getElementById('github-username')?.value.trim();
+    const username = document.getElementById('github-username').value.trim();
 
     if (!username) {
       this.showStatus('analyze-status', 'Please enter a GitHub username', 'error');
@@ -235,15 +215,10 @@ class PopupWithUsername {
     }
   }
 
-  // Populate repository select dropdown
   populateRepositorySelect(repositories) {
     const select = document.getElementById('repo-select');
-    if (!select) return;
-
-    // Clear existing options
     select.innerHTML = '<option value="">Choose a repository...</option>';
 
-    // Add repositories
     repositories.forEach(repo => {
       const option = document.createElement('option');
       option.value = repo.name;
@@ -254,27 +229,19 @@ class PopupWithUsername {
     this.toggleProcessButton();
   }
 
-  // Show repository selection area
   showRepositorySelection() {
-    const selectionArea = document.getElementById('repo-selection');
-    if (selectionArea) {
-      selectionArea.style.display = 'block';
-    }
+    document.getElementById('repo-selection').style.display = 'block';
   }
 
-  // Toggle process button based on selection
   toggleProcessButton() {
     const processBtn = document.getElementById('process-selected-btn');
     const selectElement = document.getElementById('repo-select');
     const allReposCheckbox = document.getElementById('all-repos');
 
-    if (processBtn && selectElement && allReposCheckbox) {
-      const hasSelection = selectElement.value || allReposCheckbox.checked;
-      processBtn.disabled = !hasSelection;
-    }
+    const hasSelection = selectElement.value || allReposCheckbox.checked;
+    processBtn.disabled = !hasSelection;
   }
 
-  // Process selected repositories
   async processSelectedRepositories() {
     const selectElement = document.getElementById('repo-select');
     const allReposCheckbox = document.getElementById('all-repos');
@@ -284,8 +251,8 @@ class PopupWithUsername {
       return;
     }
 
-    const processAll = allReposCheckbox?.checked;
-    const selectedRepos = processAll ? null : [selectElement?.value].filter(Boolean);
+    const processAll = allReposCheckbox.checked;
+    const selectedRepos = processAll ? null : [selectElement.value].filter(Boolean);
 
     if (!processAll && (!selectedRepos || selectedRepos.length === 0)) {
       this.showStatus('analyze-status', 'Please select a repository or choose "all repositories"', 'error');
@@ -306,7 +273,6 @@ class PopupWithUsername {
       this.processedSummaries = result.repositories || [];
       this.showStatus('analyze-status', 'Repositories processed successfully', 'success');
 
-      // Switch to summary view
       this.switchTab('summary-view');
       this.displaySummaries();
 
@@ -317,10 +283,8 @@ class PopupWithUsername {
     }
   }
 
-  // Display repository summaries
   displaySummaries() {
     const summaryList = document.getElementById('summary-list');
-    if (!summaryList) return;
 
     let summariesToShow = [...this.processedSummaries];
 
@@ -334,9 +298,6 @@ class PopupWithUsername {
       case 'favorites':
         summariesToShow = summariesToShow.filter(repo => repo.is_favorite);
         break;
-      case 'keywords':
-        // Could implement keyword-based filtering here
-        break;
     }
 
     if (summariesToShow.length === 0) {
@@ -345,28 +306,27 @@ class PopupWithUsername {
     }
 
     summaryList.innerHTML = summariesToShow.map(repo => `
-            <div class="summary-item" data-repo-name="${repo.repo_name || repo.name}">
-                <div class="summary-header">
-                    <h4>${repo.repo_name || repo.name}</h4>
-                    <div class="summary-meta">
-                        <span class="language">${repo.language || 'Unknown'}</span>
-                        <span class="updated">${this.formatDate(repo.updated_at || repo.created_at)}</span>
-                        ${repo.is_favorite ? '<span class="favorite">⭐</span>' : ''}
+                    <div class="summary-item" data-repo-name="${repo.repo_name || repo.name}">
+                        <div class="summary-header">
+                            <h4>${repo.repo_name || repo.name}</h4>
+                            <div class="summary-meta">
+                                <span class="language">${repo.language || 'Unknown'}</span>
+                                <span class="updated">${this.formatDate(repo.updated_at || repo.created_at)}</span>
+                            </div>
+                        </div>
+                        <div class="summary-description">
+                            ${repo.repo_summary || repo.description || 'No description available'}
+                        </div>
+                        <div class="summary-actions">
+                            <button class="btn-small" onclick="popupManager.selectRepository('${repo.repo_name || repo.name}')">
+                                View Details
+                            </button>
+                            <button class="btn-small btn-primary" onclick="popupManager.switchToQueryTab('${repo.html_url || repo.repo_url}')">
+                                Ask Question
+                            </button>
+                        </div>
                     </div>
-                </div>
-                <div class="summary-description">
-                    ${repo.repo_summary || repo.description || 'No description available'}
-                </div>
-                <div class="summary-actions">
-                    <button class="btn-small btn-secondary" onclick="popupManager.selectRepository('${repo.repo_name || repo.name}')">
-                        View Details
-                    </button>
-                    <button class="btn-small btn-primary" onclick="popupManager.queryRepository('${repo.html_url || repo.repo_url}')">
-                        Ask Question
-                    </button>
-                </div>
-            </div>
-        `).join('');
+                `).join('');
 
     // Add click handlers for summary items
     summaryList.querySelectorAll('.summary-item').forEach(item => {
@@ -378,7 +338,6 @@ class PopupWithUsername {
     });
   }
 
-  // Select a repository to view details
   async selectRepository(repoName) {
     const repo = this.processedSummaries.find(r => (r.repo_name || r.name) === repoName);
     if (!repo) return;
@@ -386,47 +345,29 @@ class PopupWithUsername {
     this.selectedRepository = repo;
 
     // Update selected repository display
-    const repoNameElement = document.getElementById('selected-repo-name');
-    const repoDetails = document.getElementById('repo-details');
-
-    if (repoNameElement) {
-      repoNameElement.textContent = `${repo.repo_name || repo.name} Details`;
-    }
-
-    if (repoDetails) {
-      repoDetails.style.display = 'block';
-    }
-
-    // Render tree for this repository
-    await this.renderSelectedRepositoryTree();
+    document.getElementById('selected-repo-name').textContent = `${repo.repo_name || repo.name} Details`;
+    document.getElementById('repo-details').style.display = 'block';
 
     // Highlight selected item
     document.querySelectorAll('.summary-item').forEach(item => {
       item.classList.toggle('selected', item.dataset.repoName === repoName);
     });
+
+    // Load repository structure
+    await this.loadRepositoryStructure(repo.html_url || repo.repo_url);
   }
 
-  // Switch to query tab with pre-filled repository
-  switchToQueryTab() {
-    if (!this.selectedRepository) return;
-
-    const repoUrl = this.selectedRepository.html_url || this.selectedRepository.repo_url;
+  switchToQueryTab(repoUrl) {
     if (repoUrl) {
       document.getElementById('query-repo-url').value = repoUrl;
     }
-
     this.switchTab('query');
-
-    // Focus on question input
     setTimeout(() => {
       const questionInput = document.getElementById('question');
-      if (questionInput) {
-        questionInput.focus();
-      }
+      if (questionInput) questionInput.focus();
     }, 100);
   }
 
-  // Filter summaries based on search
   filterSummaries(searchTerm) {
     const items = document.querySelectorAll('.summary-item');
     const lowerSearchTerm = searchTerm.toLowerCase();
@@ -444,37 +385,21 @@ class PopupWithUsername {
     });
   }
 
-  // Render tree for selected repository
-  async renderSelectedRepositoryTree() {
-    if (!this.selectedRepository) return;
-
-    const repoUrl = this.selectedRepository.html_url || this.selectedRepository.repo_url;
-    if (!repoUrl) return;
-
+  async loadRepositoryStructure(repoUrl) {
     try {
       const structure = await apiClient.getRepositoryStructure(repoUrl);
-
-      if (this.useLocalMermaid && this.mermaidRenderer) {
-        const diagramText = this.mermaidRenderer.generateRepoTree(structure);
-        await this.mermaidRenderer.renderDiagram('summary-tree-diagram', diagramText);
-      } else if (this.useSVGRenderer && this.svgTreeGenerator) {
-        this.svgTreeGenerator.generateRepositoryTree(structure, 'summary-tree-diagram');
-      } else {
-        this.generateFallbackTree('summary-tree-diagram');
-      }
-
+      document.getElementById('summary-tree-diagram').innerHTML = this.generateTreeHTML(structure);
     } catch (error) {
-      console.error('Failed to render repository tree:', error);
+      console.error('Failed to load repository structure:', error);
       document.getElementById('summary-tree-diagram').innerHTML =
-        `<div class="diagram-error">Failed to load repository structure</div>`;
+        '<div class="no-results">Failed to load repository structure</div>';
     }
   }
 
-  // Query repository
   async queryRepository() {
-    const repoUrl = document.getElementById('query-repo-url')?.value.trim();
-    const question = document.getElementById('question')?.value.trim();
-    const model = document.getElementById('model-select')?.value;
+    const repoUrl = document.getElementById('query-repo-url').value.trim();
+    const question = document.getElementById('question').value.trim();
+    const model = document.getElementById('model-select').value;
 
     if (!repoUrl || !question) {
       this.showStatus('query-status', 'Please enter both repository URL and question', 'error');
@@ -489,11 +414,11 @@ class PopupWithUsername {
 
       this.showStatus('query-status', 'Query completed successfully', 'success');
       this.showResults('query-results', `
-                <div class="query-response">
-                    <h3>Response (${result.model}):</h3>
-                    <div class="response-content">${this.escapeHtml(result.response).replace(/\n/g, '<br>')}</div>
-                </div>
-            `);
+                        <div class="query-response">
+                            <h3>Response (${result.model}):</h3>
+                            <div class="response-content">${this.escapeHtml(result.response).replace(/\n/g, '<br>')}</div>
+                        </div>
+                    `);
 
     } catch (error) {
       this.showStatus('query-status', `Error: ${error.message}`, 'error');
@@ -502,10 +427,9 @@ class PopupWithUsername {
     }
   }
 
-  // Search functions
   async searchFunctions() {
-    const repoUrl = document.getElementById('search-repo-url')?.value.trim();
-    const query = document.getElementById('search-query')?.value.trim();
+    const repoUrl = document.getElementById('search-repo-url').value.trim();
+    const query = document.getElementById('search-query').value.trim();
 
     if (!repoUrl || !query) {
       this.showStatus('search-status', 'Please enter both repository URL and search query', 'error');
@@ -533,7 +457,6 @@ class PopupWithUsername {
     }
   }
 
-  // Refresh tree
   async refreshTree() {
     if (!this.selectedRepository) {
       this.showStatus('tree-status', 'Please select a repository first', 'error');
@@ -546,7 +469,7 @@ class PopupWithUsername {
 
     try {
       const result = await apiClient.getRepositoryStructure(repoUrl);
-      await this.renderRepositoryTree(result);
+      document.getElementById('tree-diagram').innerHTML = this.generateTreeHTML(result);
       this.showStatus('tree-status', 'Repository structure loaded successfully', 'success');
 
     } catch (error) {
@@ -556,32 +479,7 @@ class PopupWithUsername {
     }
   }
 
-  // Render repository tree
-  async renderRepositoryTree(structure = null) {
-    try {
-      if (this.useLocalMermaid && this.mermaidRenderer) {
-        const diagramText = structure ?
-          this.mermaidRenderer.generateRepoTree(structure) :
-          this.generateSimpleMermaidTree();
-        await this.mermaidRenderer.renderDiagram('tree-diagram', diagramText);
-      } else if (this.useSVGRenderer && this.svgTreeGenerator) {
-        if (structure) {
-          this.svgTreeGenerator.generateRepositoryTree(structure, 'tree-diagram');
-        } else {
-          this.generateSimpleSVGTree();
-        }
-      } else {
-        this.generateFallbackTree('tree-diagram');
-      }
-
-    } catch (error) {
-      console.error('Failed to render tree:', error);
-      document.getElementById('tree-diagram').innerHTML =
-        `<p class="diagram-error">Failed to render tree: ${error.message}</p>`;
-    }
-  }
-
-  // Utility methods
+  // Utility Methods
   formatDate(dateString) {
     if (!dateString) return 'Unknown';
     const date = new Date(dateString);
@@ -594,91 +492,64 @@ class PopupWithUsername {
     const createdAt = data.created_at ? new Date(data.created_at).toLocaleString() : 'Unknown';
 
     return `
-            <div class="repo-result">
-                <h3>${repoName}</h3>
-                <div class="repo-meta">
-                    <span class="meta-item">Processed: ${createdAt}</span>
-                </div>
-                <div class="repo-summary">
-                    <h4>Summary</h4>
-                    <p>${summary}</p>
-                </div>
-            </div>
-        `;
+                    <div class="repo-result">
+                        <h3>${repoName}</h3>
+                        <div class="repo-meta">
+                            <span class="meta-item">Processed: ${createdAt}</span>
+                        </div>
+                        <div class="repo-summary">
+                            <h4>Summary</h4>
+                            <p>${summary}</p>
+                        </div>
+                    </div>
+                `;
   }
 
   formatSearchResults(results) {
     return results.map(func => `
-            <div class="function-result">
-                <div class="function-header">
-                    <h4>${func.function_name}</h4>
-                    <span class="file-path">${func.file_path}</span>
-                </div>
-                <div class="function-summary">
-                    <p>${func.function_summary}</p>
-                </div>
-                <details class="function-code">
-                    <summary>View Code</summary>
-                    <pre><code>${this.escapeHtml(func.function_code)}</code></pre>
-                </details>
-            </div>
-        `).join('');
-  }
-
-  generateSimpleMermaidTree() {
-    const repoName = this.selectedRepository?.repo_name || 'Repository';
-    return `
-            graph TD
-                A["${repoName}"]
-                A --> B["README.md"]
-                A --> C["src/"]
-                A --> D["docs/"]
-                C --> E["index.js"]
-                C --> F["utils.js"]
-        `;
-  }
-
-  generateSimpleSVGTree() {
-    const repoName = this.selectedRepository?.repo_name || 'Repository';
-    const simpleStructure = {
-      tree: [
-        {
-          name: repoName, type: 'tree', children: [
-            { name: 'README.md', type: 'file' },
-            {
-              name: 'src', type: 'tree', children: [
-                { name: 'index.js', type: 'file' },
-                { name: 'utils.js', type: 'file' }
-              ]
-            },
-            { name: 'docs', type: 'tree' }
-          ]
-        }
-      ]
-    };
-    this.svgTreeGenerator.generateRepositoryTree(simpleStructure, 'tree-diagram');
-  }
-
-  generateFallbackTree(containerId) {
-    const repoName = this.selectedRepository?.repo_name || 'Repository';
-    document.getElementById(containerId).innerHTML = `
-            <div class="html-tree">
-                <div class="tree-node folder">${repoName}</div>
-                <div class="tree-children">
-                    <div class="tree-node file">README.md</div>
-                    <div class="tree-node folder">src/
-                        <div class="tree-children">
-                            <div class="tree-node file">index.js</div>
-                            <div class="tree-node file">utils.js</div>
+                    <div class="function-result">
+                        <div class="function-header">
+                            <h4>${func.function_name}</h4>
+                            <span class="file-path">${func.file_path}</span>
                         </div>
+                        <div class="function-summary">
+                            <p>${func.function_summary}</p>
+                        </div>
+                        <details class="function-code">
+                            <summary>View Code</summary>
+                            <pre><code>${this.escapeHtml(func.function_code)}</code></pre>
+                        </details>
                     </div>
-                    <div class="tree-node folder">docs/</div>
-                </div>
-            </div>
-        `;
+                `).join('');
   }
 
-  // Standard utility methods
+  generateTreeHTML(structure) {
+    if (!structure || !structure.tree) {
+      return '<div class="no-results">No structure data available</div>';
+    }
+
+    return this.renderTreeNode(structure.tree, 0);
+  }
+
+  renderTreeNode(nodes, level) {
+    if (!Array.isArray(nodes)) return '';
+
+    return nodes.map(node => {
+      const indent = level * 20;
+      const icon = node.type === 'tree' ? '📁' : '📄';
+
+      let html = `<div class="tree-node" style="margin-left: ${indent}px; padding: 4px 0;">
+                        ${icon} ${node.name}
+                    </div>`;
+
+      if (node.children && node.children.length > 0) {
+        html += this.renderTreeNode(node.children, level + 1);
+      }
+
+      return html;
+    }).join('');
+  }
+
   showLoading(show = true) {
     const overlay = document.getElementById('loading-overlay');
     if (overlay) {
@@ -690,7 +561,6 @@ class PopupWithUsername {
     const element = document.getElementById(elementId);
     if (element) {
       element.innerHTML = `<div class="status status-${type}">${message}</div>`;
-      element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   }
 
@@ -699,14 +569,20 @@ class PopupWithUsername {
     if (!statusEl) {
       statusEl = document.createElement('div');
       statusEl.id = 'global-status';
-      statusEl.className = 'global-status';
-      document.querySelector('.container').prepend(statusEl);
+      statusEl.className = 'status status-' + type;
+      statusEl.style.margin = '10px 20px';
+      document.querySelector('.container').insertBefore(statusEl, document.querySelector('.tab-nav'));
     }
 
-    statusEl.innerHTML = `<div class="status status-${type}">${message}</div>`;
+    statusEl.textContent = message;
+    statusEl.className = 'status status-' + type;
 
     if (type === 'success') {
-      setTimeout(() => statusEl.remove(), 5000);
+      setTimeout(() => {
+        if (statusEl.parentNode) {
+          statusEl.parentNode.removeChild(statusEl);
+        }
+      }, 5000);
     }
   }
 
@@ -714,7 +590,6 @@ class PopupWithUsername {
     const element = document.getElementById(elementId);
     if (element) {
       element.innerHTML = `<div class="results">${content}</div>`;
-      element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
   }
 
@@ -723,222 +598,15 @@ class PopupWithUsername {
     div.textContent = text;
     return div.innerHTML;
   }
-
-  // Toggle favorite status for a repository
-  async toggleFavorite(repoName) {
-    if (!this.currentUser || !repoName) return;
-
-    try {
-      const repo = this.processedSummaries.find(r => (r.repo_name || r.name) === repoName);
-      const newFavoriteStatus = !repo.is_favorite;
-
-      await apiClient.toggleRepositoryFavorite(this.currentUser, repoName, newFavoriteStatus);
-
-      // Update local state
-      repo.is_favorite = newFavoriteStatus;
-
-      // Refresh display
-      this.displaySummaries();
-
-      this.showGlobalStatus(
-        `Repository ${newFavoriteStatus ? 'added to' : 'removed from'} favorites`,
-        'success'
-      );
-
-    } catch (error) {
-      console.error('Failed to toggle favorite:', error);
-      this.showGlobalStatus('Failed to update favorite status', 'error');
-    }
-  }
-
-  // Load user's repository summaries from API
-  async loadUserSummaries() {
-    if (!this.currentUser) return;
-
-    try {
-      this.showLoading(true);
-      const result = await apiClient.getUserRepositorySummaries(this.currentUser);
-
-      this.processedSummaries = result.summaries || [];
-      this.displaySummaries();
-
-      if (this.processedSummaries.length > 0) {
-        this.switchTab('summary-view');
-      } else {
-        this.showGlobalStatus('No processed repositories found for this user', 'info');
-      }
-
-    } catch (error) {
-      console.error('Failed to load user summaries:', error);
-      this.showGlobalStatus('Failed to load repository summaries', 'error');
-    } finally {
-      this.showLoading(false);
-    }
-  }
-
-  // Advanced search across repository summaries
-  async performAdvancedSearch(searchQuery, filters = {}) {
-    if (!this.currentUser || !searchQuery) return;
-
-    try {
-      this.showLoading(true);
-      const result = await apiClient.searchRepositorySummaries(this.currentUser, searchQuery, filters);
-
-      this.processedSummaries = result.results || [];
-      this.displaySummaries();
-
-      this.showGlobalStatus(`Found ${this.processedSummaries.length} repositories matching "${searchQuery}"`, 'success');
-
-    } catch (error) {
-      console.error('Search failed:', error);
-      this.showGlobalStatus('Search failed', 'error');
-    } finally {
-      this.showLoading(false);
-    }
-  }
-
-  // Export repository data
-  exportRepositoryData() {
-    if (this.processedSummaries.length === 0) {
-      this.showGlobalStatus('No data to export', 'error');
-      return;
-    }
-
-    const dataToExport = {
-      user: this.currentUser,
-      exported_at: new Date().toISOString(),
-      repositories: this.processedSummaries.map(repo => ({
-        name: repo.repo_name || repo.name,
-        summary: repo.repo_summary || repo.description,
-        language: repo.language,
-        url: repo.html_url || repo.repo_url,
-        is_favorite: repo.is_favorite,
-        created_at: repo.created_at,
-        updated_at: repo.updated_at
-      }))
-    };
-
-    const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `github-repositories-${this.currentUser}-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    this.showGlobalStatus('Repository data exported successfully', 'success');
-  }
-
-  // Handle keyboard shortcuts
-  handleKeyboardShortcuts(event) {
-    // Ctrl/Cmd + K for quick search
-    if ((event.ctrlKey || event.metaKey) && event.key === 'k') {
-      event.preventDefault();
-      const searchInput = document.getElementById('summary-search-input');
-      if (searchInput && searchInput.offsetParent !== null) {
-        searchInput.focus();
-      }
-    }
-
-    // Escape to clear search
-    if (event.key === 'Escape') {
-      const searchInput = document.getElementById('summary-search-input');
-      if (searchInput && searchInput === document.activeElement) {
-        searchInput.value = '';
-        this.filterSummaries('');
-      }
-    }
-
-    // Arrow keys for repository navigation
-    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-      this.navigateRepositories(event.key === 'ArrowDown' ? 1 : -1);
-      event.preventDefault();
-    }
-  }
-
-  // Navigate repositories with keyboard
-  navigateRepositories(direction) {
-    const items = Array.from(document.querySelectorAll('.summary-item:not([style*="display: none"])'));
-    const selectedItem = document.querySelector('.summary-item.selected');
-
-    let currentIndex = selectedItem ? items.indexOf(selectedItem) : -1;
-    let newIndex = currentIndex + direction;
-
-    if (newIndex >= 0 && newIndex < items.length) {
-      if (selectedItem) selectedItem.classList.remove('selected');
-      items[newIndex].classList.add('selected');
-      items[newIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-      // Auto-select repository
-      const repoName = items[newIndex].dataset.repoName;
-      this.selectRepository(repoName);
-    }
-  }
-
-  // Initialize keyboard event listeners
-  initializeKeyboardListeners() {
-    document.addEventListener('keydown', (event) => this.handleKeyboardShortcuts(event));
-  }
-
-  // Cleanup method
-  cleanup() {
-    // Clear any intervals or timeouts
-    if (this.refreshInterval) {
-      clearInterval(this.refreshInterval);
-    }
-
-    // Clear cache
-    if (apiClient && typeof apiClient.clearCache === 'function') {
-      apiClient.clearCache();
-    }
-
-    // Remove global event listeners
-    document.removeEventListener('keydown', this.handleKeyboardShortcuts);
-  }
-
-  // Debug helper methods
-  getDebugInfo() {
-    return {
-      currentUser: this.currentUser,
-      currentRepositories: this.currentRepositories.length,
-      processedSummaries: this.processedSummaries.length,
-      selectedRepository: this.selectedRepository?.repo_name || this.selectedRepository?.name,
-      useLocalMermaid: this.useLocalMermaid,
-      useSVGRenderer: this.useSVGRenderer,
-      currentFilter: this.currentFilter,
-      apiCacheStats: apiClient.getCacheStats()
-    };
-  }
-
-  // Log debug information
-  logDebugInfo() {
-    console.log('PopupManager Debug Info:', this.getDebugInfo());
-  }
 }
 
-// Initialize popup when DOM is loaded
+// Initialize the popup
+let popupManager;
+
 document.addEventListener('DOMContentLoaded', async () => {
-  const popupManager = new PopupWithUsername();
+  const apiClient = new EnhancedApiClient();
+  popupManager = new PopupManager(apiClient);
   await popupManager.init();
-
-  // Initialize keyboard listeners
-  popupManager.initializeKeyboardListeners();
-
-  // Make it globally available for debugging
   window.popupManager = popupManager;
-
-  // Cleanup on page unload
-  window.addEventListener('beforeunload', () => {
-    popupManager.cleanup();
-  });
-
-  // Debug command for development
-  window.debugPopup = () => {
-    popupManager.logDebugInfo();
-  };
-
   console.log('GitHub AI Navigator initialized successfully');
 });
