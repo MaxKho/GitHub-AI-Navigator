@@ -1,318 +1,369 @@
-/// <reference types="chrome"/>
+// popup-enhanced.js - Enhanced popup with API integration and Mermaid rendering
 
-const API_BASE_URL = 'http://localhost:5001/api';
+class PopupManager {
+  constructor() {
+    this.mermaidRenderer = new MermaidRenderer();
+    this.currentRepoUrl = '';
+    this.currentRepoData = null;
+  }
 
-document.addEventListener('DOMContentLoaded', () => {
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    const url = tabs[0].url;
-    if (!url.startsWith("https://github.com/")) {
-      document.body.innerHTML = `
-      <style>
-      * {
-          margin: 0;
-          padding: 0;
-          box-sizing: border-box;
-      }
+  async init() {
+    await this.mermaidRenderer.init();
+    this.setupEventListeners();
+    await this.autoFillFromCurrentTab();
+    await this.checkApiHealth();
+  }
 
-      body {
-          width: 320px;
-          min-height: 400px;
-          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-          background: #0f0f0f;
-          color: #e2e8f0;
-          line-height: 1.5;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-      }
+  // Setup all event listeners
+  setupEventListeners() {
+    // Tab switching
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => this.switchTab(btn.dataset.tab));
+    });
 
-      .error-container {
-          padding: 32px 24px;
-          text-align: center;
-          max-width: 280px;
-      }
+    // API action buttons
+    document.getElementById('process-btn').addEventListener('click', () => this.processRepository());
+    document.getElementById('query-btn').addEventListener('click', () => this.queryRepository());
+    document.getElementById('search-btn').addEventListener('click', () => this.searchFunctions());
+    document.getElementById('refresh-tree-btn').addEventListener('click', () => this.refreshTree());
 
-      .error-icon {
-          width: 48px;
-          height: 48px;
-          background: #1a1a1a;
-          border: 2px solid #333;
-          border-radius: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          margin: 0 auto 20px;
-          font-size: 20px;
-      }
+    // Enter key support
+    document.getElementById('github-url').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') this.processRepository();
+    });
 
-      .error-title {
-          font-size: 16px;
-          font-weight: 600;
-          color: #f7fafc;
-          margin-bottom: 8px;
-      }
+    document.getElementById('question').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && e.ctrlKey) this.queryRepository();
+    });
 
-      .error-message {
-          font-size: 14px;
-          color: #a0aec0;
-          margin-bottom: 24px;
-          line-height: 1.4;
-      }
+    document.getElementById('search-query').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') this.searchFunctions();
+    });
 
-      .github-logo {
-          width: 24px;
-          height: 24px;
-          fill: #6b7280;
-      }
+    // URL synchronization
+    ['github-url', 'query-repo-url', 'search-repo-url'].forEach(id => {
+      document.getElementById(id).addEventListener('input', (e) => {
+        this.syncUrls(e.target.value);
+      });
+    });
+  }
 
-      .help-text {
-          font-size: 12px;
-          color: #6b7280;
-          margin-top: 16px;
-      }
-      </style>
+  // Switch between tabs
+  switchTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tab === tabName);
+    });
 
-      <div class="error-container">
-          <div class="error-icon">
-              <svg class="github-logo" viewBox="0 0 24 24">
-                  <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-              </svg>
-          </div>
+    // Update tab content
+    document.querySelectorAll('.tab-content').forEach(content => {
+      content.classList.toggle('active', content.id === `${tabName}-tab`);
+    });
 
-          <h2 class="error-title">GitHub Required</h2>
-
-          <p class="error-message">
-              This extension only works on GitHub pages. Please navigate to github.com to use Github AI Navigator.
-          </p>
-
-          <p class="help-text">
-              Visit any GitHub repository to start summarizing code
-          </p>
-      </div>
-      `;
-    } else {
-      addExtensionIndicator();
-      initilisePopuUI()
+    // Special handling for tree tab
+    if (tabName === 'tree' && this.currentRepoData) {
+      this.renderRepositoryTree();
     }
-  });
+  }
+
+  // Auto-fill GitHub URL from current tab
+  async autoFillFromCurrentTab() {
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab.url && tab.url.includes('github.com')) {
+        this.syncUrls(tab.url);
+        this.currentRepoUrl = tab.url;
+      }
+    } catch (error) {
+      console.log('Could not get current tab URL:', error);
+    }
+  }
+
+  // Sync URLs across all input fields
+  syncUrls(url) {
+    ['github-url', 'query-repo-url', 'search-repo-url'].forEach(id => {
+      const input = document.getElementById(id);
+      if (input && input.value !== url) {
+        input.value = url;
+      }
+    });
+    this.currentRepoUrl = url;
+  }
+
+  // Check API health
+  async checkApiHealth() {
+    try {
+      const isHealthy = await apiClient.healthCheck();
+      if (!isHealthy) {
+        this.showGlobalStatus('API server is not responding. Please ensure the backend is running.', 'error');
+      }
+    } catch (error) {
+      console.error('Health check failed:', error);
+    }
+  }
+
+  // Show loading state
+  showLoading(show = true) {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) {
+      overlay.classList.toggle('hidden', !show);
+    }
+  }
+
+  // Show status in specific area
+  showStatus(elementId, message, type = 'info') {
+    const element = document.getElementById(elementId);
+    if (element) {
+      element.innerHTML = `<div class="status status-${type}">${message}</div>`;
+      element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
+  // Show global status
+  showGlobalStatus(message, type = 'info') {
+    // Create or update global status
+    let statusEl = document.getElementById('global-status');
+    if (!statusEl) {
+      statusEl = document.createElement('div');
+      statusEl.id = 'global-status';
+      statusEl.className = 'global-status';
+      document.querySelector('.container').prepend(statusEl);
+    }
+
+    statusEl.innerHTML = `<div class="status status-${type}">${message}</div>`;
+
+    // Auto-hide after 5 seconds for success messages
+    if (type === 'success') {
+      setTimeout(() => statusEl.remove(), 5000);
+    }
+  }
+
+  // Show results
+  showResults(elementId, content) {
+    const element = document.getElementById(elementId);
+    if (element) {
+      element.innerHTML = `<div class="results">${content}</div>`;
+      element.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+
+  // Process repository
+  async processRepository() {
+    const githubUrl = document.getElementById('github-url').value.trim();
+
+    if (!githubUrl) {
+      this.showStatus('analyze-status', 'Please enter a GitHub repository URL', 'error');
+      return;
+    }
+
+    if (!githubUrl.includes('github.com')) {
+      this.showStatus('analyze-status', 'Please enter a valid GitHub URL', 'error');
+      return;
+    }
+
+    this.showLoading(true);
+    this.showStatus('analyze-status', 'Processing repository...', 'info');
+
+    try {
+      const result = await apiClient.processRepository(githubUrl);
+
+      // Store the result for later use
+      this.currentRepoData = result;
+
+      if (result.message === 'Repository already processed') {
+        this.showStatus('analyze-status', 'Repository already processed!', 'success');
+        this.showResults('analyze-results', this.formatRepositoryResult(result.data));
+      } else {
+        this.showStatus('analyze-status', 'Repository processed successfully!', 'success');
+        this.showResults('analyze-results', this.formatRepositoryResult(result));
+      }
+
+    } catch (error) {
+      this.showStatus('analyze-status', `Error: ${error.message}`, 'error');
+    } finally {
+      this.showLoading(false);
+    }
+  }
+
+  // Query repository
+  async queryRepository() {
+    const repoUrl = document.getElementById('query-repo-url').value.trim();
+    const question = document.getElementById('question').value.trim();
+    const model = document.getElementById('model-select').value;
+
+    if (!repoUrl || !question) {
+      this.showStatus('query-status', 'Please enter both repository URL and question', 'error');
+      return;
+    }
+
+    this.showLoading(true);
+    this.showStatus('query-status', 'Processing your question...', 'info');
+
+    try {
+      const result = await apiClient.queryRepository(repoUrl, question, model);
+
+      this.showStatus('query-status', 'Query completed successfully!', 'success');
+      this.showResults('query-results', `
+                <div class="query-response">
+                    <h3>Response (${result.model}):</h3>
+                    <div class="response-content">${result.response.replace(/\n/g, '<br>')}</div>
+                </div>
+            `);
+
+    } catch (error) {
+      this.showStatus('query-status', `Error: ${error.message}`, 'error');
+    } finally {
+      this.showLoading(false);
+    }
+  }
+
+  // Search functions
+  async searchFunctions() {
+    const repoUrl = document.getElementById('search-repo-url').value.trim();
+    const query = document.getElementById('search-query').value.trim();
+
+    if (!repoUrl || !query) {
+      this.showStatus('search-status', 'Please enter both repository URL and search query', 'error');
+      return;
+    }
+
+    this.showLoading(true);
+    this.showStatus('search-status', 'Searching functions...', 'info');
+
+    try {
+      const result = await apiClient.searchFunctions(repoUrl, query);
+
+      if (result.results && result.results.length > 0) {
+        this.showStatus('search-status', `Found ${result.results.length} functions`, 'success');
+        this.showResults('search-results', this.formatSearchResults(result.results));
+      } else {
+        this.showStatus('search-status', 'No functions found matching your query', 'info');
+        this.showResults('search-results', '<p class="no-results">No results found.</p>');
+      }
+
+    } catch (error) {
+      this.showStatus('search-status', `Error: ${error.message}`, 'error');
+    } finally {
+      this.showLoading(false);
+    }
+  }
+
+  // Refresh repository tree
+  async refreshTree() {
+    if (!this.currentRepoUrl) {
+      this.showStatus('tree-status', 'Please process a repository first', 'error');
+      return;
+    }
+
+    this.showLoading(true);
+    this.showStatus('tree-status', 'Loading repository structure...', 'info');
+
+    try {
+      const result = await apiClient.getRepositoryStructure(this.currentRepoUrl);
+      this.currentRepoData = { ...this.currentRepoData, structure: result };
+
+      await this.renderRepositoryTree();
+      this.showStatus('tree-status', 'Repository structure loaded successfully!', 'success');
+
+    } catch (error) {
+      this.showStatus('tree-status', `Error: ${error.message}`, 'error');
+    } finally {
+      this.showLoading(false);
+    }
+  }
+
+  // Render repository tree using Mermaid
+  async renderRepositoryTree() {
+    if (!this.currentRepoData) {
+      document.getElementById('tree-diagram').innerHTML = '<p class="no-data">No repository data available</p>';
+      return;
+    }
+
+    try {
+      let diagramText;
+
+      if (this.currentRepoData.structure) {
+        diagramText = this.mermaidRenderer.generateRepoTree(this.currentRepoData.structure);
+      } else {
+        // Generate a simple tree from available data
+        diagramText = this.generateSimpleTree();
+      }
+
+      await this.mermaidRenderer.renderDiagram('tree-diagram', diagramText);
+
+    } catch (error) {
+      console.error('Failed to render tree:', error);
+      document.getElementById('tree-diagram').innerHTML = `<p class="diagram-error">Failed to render tree: ${error.message}</p>`;
+    }
+  }
+
+  // Generate simple tree from basic repo data
+  generateSimpleTree() {
+    const repoName = this.currentRepoData.repo_name || 'Repository';
+    return `
+            graph TD
+                A["📁 ${repoName}"]
+                A --> B["📄 README.md"]
+                A --> C["📁 src/"]
+                A --> D["📁 docs/"]
+                A --> E["📄 package.json"]
+                C --> F["📄 index.js"]
+                C --> G["📄 utils.js"]
+        `;
+  }
+
+  // Format repository processing result
+  formatRepositoryResult(data) {
+    const repoName = data.repo_name || 'Unknown';
+    const summary = data.repo_summary || 'No summary available';
+    const createdAt = data.created_at ? new Date(data.created_at).toLocaleString() : 'Unknown';
+
+    return `
+            <div class="repo-result">
+                <h3>📁 ${repoName}</h3>
+                <div class="repo-meta">
+                    <span class="meta-item">🕒 Processed: ${createdAt}</span>
+                </div>
+                <div class="repo-summary">
+                    <h4>Summary</h4>
+                    <p>${summary}</p>
+                </div>
+            </div>
+        `;
+  }
+
+  // Format search results
+  formatSearchResults(results) {
+    return results.map(func => `
+            <div class="function-result">
+                <div class="function-header">
+                    <h4>⚡ ${func.function_name}</h4>
+                    <span class="file-path">📄 ${func.file_path}</span>
+                </div>
+                <div class="function-summary">
+                    <p>${func.function_summary}</p>
+                </div>
+                <details class="function-code">
+                    <summary>View Code</summary>
+                    <pre><code>${this.escapeHtml(func.function_code)}</code></pre>
+                </details>
+            </div>
+        `).join('');
+  }
+
+  // Escape HTML for safe display
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+}
+
+// Initialize popup when DOM is loaded
+document.addEventListener('DOMContentLoaded', async () => {
+  const popupManager = new PopupManager();
+  await popupManager.init();
+
+  // Make it globally available for debugging
+  window.popupManager = popupManager;
 });
-
-function addExtensionIndicator() {
-  if (document.querySelector('.repo-analyser-indicator')) {
-    return; // Already added
-  }
-
-  const indicator = document.createElement('div');
-  indicator.className = 'repo-analyser-indicator';
-  indicator.style.cssText = `
-        position: fixed;
-        top: 10px;
-        right: 10px;
-        background: linear-gradient(45deg, #667eea, #764ba2);
-        color: white;
-        padding: 5px 10px;
-        border-radius: 15px;
-        font-size: 12px;
-        z-index: 10000;
-        cursor: pointer;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-    `;
-  indicator.textContent = '🔍 Analyser';
-  indicator.title = 'Click to open Repository Analyser';
-
-  indicator.addEventListener('click', () => {
-    chrome.runtime.sendMessage({ action: 'openPopup' });
-  });
-
-  document.body.appendChild(indicator);
-}
-
-function initilisePopuUI() {
-  // Generate summary button
-  const repo_url = document.getElementById('repo-url')
-  const repoInfo = getRepositoryInfo()
-  repo_url.innerText = repoInfo.fullUrl
-  document.getElementById('generate-btn').addEventListener('click', () => {
-    const url = document.getElementById('repo-url').value;
-    if (!url) return alert('Please enter a repository URL');
-    showState('loading-state');
-    setTimeout(() => showState('summary-state'), 2000);
-  });
-
-  // GitHub login button
-  document.getElementById('github-login-btn').addEventListener('click', () => {
-    showState('loading-state');
-    setTimeout(() => showState('connected-state'), 1500);
-  });
-
-  // Back buttons
-  document.getElementById('back-to-initial').addEventListener('click', () => showState('initial-state'));
-  document.getElementById('back-to-connected').addEventListener('click', () => showState('connected-state'));
-
-  // View summaries button
-  document.getElementById('view-summaries-btn').addEventListener('click', () => {
-    const selectedRepo = document.getElementById('repo-select').value;
-    const allRepos = document.getElementById('all-repos').checked;
-    if (!selectedRepo && !allRepos) return alert('Please select a repository or choose "all repositories"');
-    showState('loading-state');
-    setTimeout(() => showState('summary-state'), 1500);
-  });
-
-  // Search input filter
-  document.getElementById('search-input').addEventListener('input', filterSummaries);
-
-  // Initialize summary items
-  renderSummaryItems();
-
-  // Initialize mermaid
-  mermaid.initialize({
-    startOnLoad: true,
-    theme: 'neutral',
-    themeVariables: {
-      primaryColor: '#6366f1',
-      primaryTextColor: '#1f2937',
-      primaryBorderColor: '#d1d5db',
-      lineColor: '#9ca3af'
-    }
-  });
-  mermaid.init(undefined, document.querySelectorAll('.mermaid'));
-}
-
-function getRepositoryInfo() {
-  const pathParts = window.location.pathname.split('/').filter(Boolean);
-
-  if (pathParts.length >= 2) {
-    return {
-      username: pathParts[0],
-      repoName: pathParts[1],
-      fullUrl: window.location.href
-    };
-  }
-
-  return null;
-}
-
-
-/**
- * @param {string} stateId
- */
-function showState(stateId) {
-  document.querySelectorAll('.state').forEach(s => s.classList.remove('active'));
-  const el = document.getElementById(stateId);
-  if (el) el.classList.add('active');
-}
-
-
-function generateSummary() {
-  const url = document.getElementById('repo-url').value;
-  if (!url) {
-    alert('Please enter a repository URL');
-    return;
-  }
-
-  showState('loading-state');
-
-  // Simulate API call
-  setTimeout(() => {
-    showState('summary-state');
-  }, 2000);
-}
-
-function loginWithGithub() {
-  showState('loading-state');
-
-  // Simulate GitHub OAuth
-  setTimeout(() => {
-    showState('connected-state');
-  }, 1500);
-}
-
-function viewSummaries() {
-  const selectedRepo = document.getElementById('repo-select').value;
-  const allRepos = document.getElementById('all-repos').checked;
-
-  if (!selectedRepo && !allRepos) {
-    alert('Please select a repository or choose "all repositories"');
-    return;
-  }
-
-  showState('loading-state');
-
-  setTimeout(() => {
-    showState('summary-state');
-  }, 1500);
-}
-
-function renderSummaryItems(summaries) {
-  const list = document.getElementById('summary-list');
-  list.innerHTML = summaries.map(s => `
-    <div class="summary-item" data-repo="${s.repoName}">
-      <div class="summary-title">${s.title}</div>
-      <div class="summary-meta">${s.meta}</div>
-    </div>
-  `).join('');
-
-  list.querySelectorAll('.summary-item').forEach(item => {
-    item.addEventListener('click', () => showTree(item.dataset.repo));
-  });
-}
-
-
-function filterSummaries() {
-  const searchTerm = document.getElementById('search-input').value.toLowerCase();
-  const summaryItems = document.querySelectorAll('.summary-item');
-
-  summaryItems.forEach(item => {
-    const title = item.querySelector('.summary-title').textContent.toLowerCase();
-    const meta = item.querySelector('.summary-meta').textContent.toLowerCase();
-
-    if (title.includes(searchTerm) || meta.includes(searchTerm)) {
-      item.style.display = 'block';
-    } else {
-      item.style.display = 'none';
-    }
-  });
-}
-
-function jsonToTree(json) { }
-
-/**
- * @param {string} repoName
- */
-function showTree(repoName) {
-  // Update tree diagram based on selected repository
-  const treeData = {
-    'react-dashboard': `
-                    graph TD
-                        A[src/]  B[components/]
-                        A  C[pages/]
-                        A  D[hooks/]
-                        B  E[Dashboard.tsx]
-                        B  F[Chart.tsx]
-                        C  G[Home.tsx]
-                        D  H[useAuth.ts]
-                `,
-    'api-service': `
-                    graph TD
-                        A[src/]  B[routes/]
-                        A  C[models/]
-                        A  D[middleware/]
-                        B  E[users.js]
-                        B  F[auth.js]
-                        C  G[User.js]
-                        D  H[auth.js]
-                `,
-    'my-awesome-project': `
-                    graph TD
-                        A[src/]  B[components/]
-                        A  C[views/]
-                        A  D[store/]
-                        B  E[Header.vue]
-                        C  F[Home.vue]
-                        D  G[index.js]
-                `
-  };
-}
-const diagram = document.getElementById('tree-diagram')
-diagram.textContent = treeData[repoName] || treeData['react-dashboard'];
-mermaid.init(undefined, diagram);

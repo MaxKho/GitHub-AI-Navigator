@@ -6,11 +6,13 @@
   "permissions": [
     "contextMenus",
     "tabs",
-    "storage"
+    "storage",
+    "activeTab"
   ],
   "host_permissions": [
     "https://github.com/*",
-    "https://api.github.com/*"
+    "https://api.github.com/*",
+    "http://localhost:*/*"
   ],
   "action": {
     "default_popup": "popup.html",
@@ -22,5 +24,20 @@
   },
   "omnibox": {
     "keyword": "github"
-  }
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval' https://cdnjs.cloudflare.com; object-src 'self'"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "*.js",
+        "*.css",
+        "*.html"
+      ],
+      "matches": [
+        "https://github.com/*"
+      ]
+    }
+  ]
 }
