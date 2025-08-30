@@ -1,0 +1,68 @@
+[
+  {
+    "name": "Net.__init__",
+    "defined_in": "best_net.py",
+    "signature": "(self, D=3, K=4, input_channels=1)",
+    "summary": "Builds a fixed 1D CNN per hard-coded 'genome' with Conv1d+activation+pool blocks, then FC layers, ending with a K-way classifier."
+  },
+  {
+    "name": "Net.forward",
+    "defined_in": "best_net.py",
+    "signature": "(self, x)",
+    "summary": "Ensures a channel dimension for 1D input and runs the tensor through the sequential network."
+  },
+  {
+    "name": "load_and_process_val_pcvc_data",
+    "defined_in": "best_net.py",
+    "signature": "(directory='.', train_size=0.8, random_seed=42)",
+    "summary": "Loads PCVC .mat files, flattens (rep × vowel) to examples, splits train/val, applies fixed slice + Hann window to val, resamples to 16 kHz, returns X_val and one-hot y_val."
+  },
+  {
+    "name": "load_and_process_pcvc_data",
+    "defined_in": "genetic.py",
+    "signature": "(directory='.', train_size=0.8, random_seed=42)",
+    "summary": "Full PCVC pipeline: split train/val; for train, apply randomized 10× slicing with Hann window, resample to 16 kHz, add Gaussian noise; for val, fixed slice; one-hot labels; returns arrays."
+  },
+  {
+    "name": "Net.__init__",
+    "defined_in": "genetic.py",
+    "signature": "(self, genome, D=3, K=4, input_channels=1)",
+    "summary": "Constructs a CNN dynamically from a 'genome' dict list (conv or dense genes), mapping activations and tracking output size for FC layers."
+  },
+  {
+    "name": "Net.forward",
+    "defined_in": "genetic.py",
+    "signature": "(self, x)",
+    "summary": "Adds channel dim if needed and forwards through the genome-defined network."
+  },
+  {
+    "name": "generate_initial_population",
+    "defined_in": "genetic.py",
+    "signature": "(size, blueprint)",
+    "summary": "Randomly samples layer genes from a blueprint to create diverse genomes; sorts layers so conv blocks precede dense blocks."
+  },
+  {
+    "name": "selection",
+    "defined_in": "genetic.py",
+    "signature": "(population, fitnesses, num_parents)",
+    "summary": "Selects the top-fitness genomes as parents for the next generation."
+  },
+  {
+    "name": "crossover",
+    "defined_in": "genetic.py",
+    "signature": "(parent1, parent2)",
+    "summary": "Combines aligned genes from two parents (conv vs dense handled separately), appends leftover tail, and sorts conv before dense."
+  },
+  {
+    "name": "mutate",
+    "defined_in": "genetic.py",
+    "signature": "(genome)",
+    "summary": "Stochastically alters genome length and gene hyperparameters (both conv and dense) using blueprint options and mutation_rate."
+  },
+  {
+    "name": "compute_fitness",
+    "defined_in": "genetic.py",
+    "signature": "(genome, train_loader, test_loader, criterion, lr=0.01, epochs=5, D=None, K=None)",
+    "summary": "Instantiates Net from genome, trains for a few epochs, evaluates on validation loader, and returns accuracy as fitness."
+  }
+]

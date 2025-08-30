@@ -1,4 +1,4 @@
-/* Enhanced styles.css with new components and improved design */
+/* Complete enhanced styles.css with username and repository selection features */
 
 * {
     margin: 0;
@@ -65,9 +65,9 @@ body {
     background: none;
     border: none;
     color: #9ca3af;
-    padding: 8px 12px;
+    padding: 8px 6px;
     border-radius: 6px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -105,9 +105,56 @@ body {
     }
 }
 
+/* Input Methods */
+.input-method {
+    margin-bottom: 16px;
+}
+
+.divider {
+    display: flex;
+    align-items: center;
+    margin: 16px 0;
+    color: #6b7280;
+    font-size: 12px;
+}
+
+.divider::before,
+.divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #374151;
+}
+
+.divider span {
+    padding: 0 12px;
+}
+
+/* Repository Selection */
+.repo-selection {
+    margin-top: 12px;
+    padding: 12px;
+    background: #1a1a1a;
+    border: 1px solid #374151;
+    border-radius: 6px;
+}
+
+.checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.checkbox {
+    width: 16px;
+    height: 16px;
+    accent-color: #6366f1;
+}
+
 /* Form Elements */
 .form-group {
-    margin-bottom: 16px;
+    margin-bottom: 12px;
 }
 
 .form-group label {
@@ -144,6 +191,11 @@ body {
 .textarea {
     resize: vertical;
     min-height: 80px;
+}
+
+.select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 /* Buttons */
@@ -183,6 +235,187 @@ body {
 .btn-secondary:hover:not(:disabled) {
     background: #4b5563;
     border-color: #6b7280;
+}
+
+.btn-small {
+    padding: 4px 8px;
+    font-size: 11px;
+    width: auto;
+    margin: 0 4px 0 0;
+    display: inline-block;
+}
+
+/* Summary View */
+.summary-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.summary-header h3 {
+    color: #f8fafc;
+    font-size: 16px;
+}
+
+.back-btn {
+    background: none;
+    border: none;
+    color: #6b7280;
+    cursor: pointer;
+    font-size: 18px;
+    padding: 4px;
+}
+
+.back-btn:hover {
+    color: #e2e8f0;
+}
+
+/* Filter Tabs */
+.filter-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    background: #1a1a1a;
+    border-radius: 6px;
+    padding: 4px;
+    border: 1px solid #374151;
+}
+
+.filter-tab {
+    flex: 1;
+    background: none;
+    border: none;
+    color: #9ca3af;
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.filter-tab.active {
+    background: #6366f1;
+    color: white;
+}
+
+.filter-tab:hover:not(.active) {
+    background: #374151;
+    color: #e2e8f0;
+}
+
+/* Summary List */
+.summary-list {
+    max-height: 300px;
+    overflow-y: auto;
+    margin-bottom: 16px;
+}
+
+.summary-item {
+    background: #1a1a1a;
+    border: 1px solid #374151;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.summary-item:hover {
+    border-color: #6366f1;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.summary-item.selected {
+    border-color: #6366f1;
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.summary-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 6px;
+}
+
+.summary-header h4 {
+    color: #f8fafc;
+    font-size: 13px;
+    margin: 0;
+}
+
+.summary-meta {
+    display: flex;
+    gap: 8px;
+    font-size: 11px;
+    color: #9ca3af;
+    align-items: center;
+}
+
+.language {
+    background: #374151;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+}
+
+.favorite {
+    color: #fbbf24;
+}
+
+.summary-description {
+    color: #d1d5db;
+    font-size: 12px;
+    line-height: 1.4;
+    margin-bottom: 8px;
+}
+
+.summary-actions {
+    display: flex;
+    gap: 4px;
+    margin-top: 8px;
+}
+
+/* Repository Details */
+.repo-details {
+    margin-top: 16px;
+    background: #1a1a1a;
+    border: 1px solid #374151;
+    border-radius: 6px;
+    padding: 12px;
+}
+
+.details-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.details-header h4 {
+    color: #f8fafc;
+    font-size: 14px;
+}
+
+/* Search Container */
+.search-container {
+    position: relative;
+    margin-bottom: 16px;
+}
+
+.search-input {
+    padding-left: 36px;
+}
+
+.search-container::before {
+    content: '🔍';
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 12px;
+    opacity: 0.7;
 }
 
 /* Status Areas */
@@ -366,7 +599,7 @@ body {
     border: 1px solid #374151;
     border-radius: 6px;
     padding: 12px;
-    min-height: 200px;
+    min-height: 150px;
 }
 
 .tree-title {
@@ -377,7 +610,7 @@ body {
 }
 
 .mermaid-container {
-    min-height: 150px;
+    min-height: 120px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -396,6 +629,28 @@ body {
     font-style: italic;
 }
 
+/* HTML Tree Fallback */
+.html-tree {
+    font-family: 'SF Mono', Monaco, Consolas, monospace;
+    font-size: 11px;
+}
+
+.tree-node {
+    padding: 2px 0;
+    color: #d1d5db;
+}
+
+.tree-node.folder {
+    color: #93c5fd;
+    font-weight: 500;
+}
+
+.tree-children {
+    margin-left: 16px;
+    border-left: 1px solid #374151;
+    padding-left: 8px;
+}
+
 /* Loading States */
 .loading-overlay {
     position: absolute;
@@ -408,6 +663,7 @@ body {
     align-items: center;
     justify-content: center;
     z-index: 999;
+    backdrop-filter: blur(2px);
 }
 
 .loading-overlay.hidden {
@@ -443,23 +699,27 @@ body {
 
 /* Scrollbar Styling */
 .results-area::-webkit-scrollbar,
+.summary-list::-webkit-scrollbar,
 .function-code pre::-webkit-scrollbar {
     width: 4px;
 }
 
 .results-area::-webkit-scrollbar-track,
+.summary-list::-webkit-scrollbar-track,
 .function-code pre::-webkit-scrollbar-track {
     background: #1a1a1a;
     border-radius: 2px;
 }
 
 .results-area::-webkit-scrollbar-thumb,
+.summary-list::-webkit-scrollbar-thumb,
 .function-code pre::-webkit-scrollbar-thumb {
     background: #374151;
     border-radius: 2px;
 }
 
 .results-area::-webkit-scrollbar-thumb:hover,
+.summary-list::-webkit-scrollbar-thumb:hover,
 .function-code pre::-webkit-scrollbar-thumb:hover {
     background: #4b5563;
 }
@@ -495,14 +755,58 @@ body {
         padding: 12px;
     }
 
-    .tab-btn {
-        padding: 6px 8px;
-        font-size: 11px;
+    .tab-btn,
+    .filter-tab {
+        padding: 6px 4px;
+        font-size: 10px;
     }
 
-    .function-header {
+    .function-header,
+    .summary-header {
         flex-direction: column;
         align-items: flex-start;
         gap: 4px;
+    }
+
+    .summary-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+}
+
+/* Focus states for accessibility */
+.btn:focus,
+.url-input:focus,
+.search-input:focus,
+.textarea:focus,
+.select:focus {
+    outline: 2px solid #6366f1;
+    outline-offset: 2px;
+}
+
+/* Hover states for interactive elements */
+.summary-item:hover .summary-actions .btn-small {
+    opacity: 1;
+}
+
+.summary-actions .btn-small {
+    opacity: 0.8;
+    transition: opacity 0.2s ease;
+}
+
+/* Animation for summary items */
+.summary-item {
+    animation: slideInUp 0.3s ease;
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
 }

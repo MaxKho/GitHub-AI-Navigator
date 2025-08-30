@@ -1,0 +1,31 @@
+{
+  "name": "Genetic-Algorithm",
+  "type": "directory",
+  "path": ".",
+  "children": [
+    {
+      "name": "best_net.py",
+      "type": "file",
+      "path": "./best_net.py",
+      "summary": "Loads a fixed CNN architecture (the GA winner), prepares PCVC validation audio (Hann window + resample), loads weights from best_net.pth, and prints validation accuracy."
+    },
+    {
+      "name": "genetic.py",
+      "type": "file",
+      "path": "./genetic.py",
+      "summary": "Runs a genetic algorithm over CNN genomes: data prep/augmentation for PCVC, genome generation/mutation/crossover, model training/eval per genome, selects best, retrains it, evaluates, saves weights."
+    },
+    {
+      "name": "best_net.pth",
+      "type": "binary",
+      "path": "./best_net.pth",
+      "summary": "PyTorch state_dict checkpoint for the best architecture discovered; consumed by best_net.py (not human-readable)."
+    },
+    {
+      "name": "report.pdf",
+      "type": "pdf",
+      "path": "./report.pdf",
+      "summary": "Project report describing GA setup, model design, and results (PDF)."
+    }
+  ]
+}

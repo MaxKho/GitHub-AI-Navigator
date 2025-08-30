@@ -9,7 +9,7 @@
   <div class="container">
     <!-- Header -->
     <div class="header">
-      <div class="logo">🚀</div>
+      <div class="logo">G</div>
       <div class="title">Github AI Navigator</div>
     </div>
 
@@ -23,14 +23,83 @@
 
     <!-- Analyze Tab -->
     <div id="analyze-tab" class="tab-content active">
-      <div class="form-group">
-        <label>GitHub Repository URL</label>
-        <input type="text" class="url-input" placeholder="https://github.com/user/repo" id="github-url">
+      <!-- Option 1: Direct URL Input -->
+      <div class="input-method" id="url-method">
+        <div class="form-group">
+          <label>GitHub Repository URL</label>
+          <input type="text" class="url-input" placeholder="https://github.com/user/repo" id="github-url">
+        </div>
+        <button class="btn btn-primary" id="process-single-btn">Process Repository</button>
       </div>
-      <button class="btn btn-primary" id="process-btn">Process Repository</button>
+
+      <div class="divider"><span>or</span></div>
+
+      <!-- Option 2: Username-based Selection -->
+      <div class="input-method" id="username-method">
+        <div class="form-group">
+          <label>GitHub Username</label>
+          <input type="text" class="url-input" placeholder="Enter GitHub username" id="github-username">
+          <button class="btn btn-secondary" id="fetch-repos-btn">Fetch Repositories</button>
+        </div>
+
+        <!-- Repository Selection (hidden initially) -->
+        <div class="repo-selection" id="repo-selection" style="display: none;">
+          <div class="form-group">
+            <label>Select Repository</label>
+            <select class="select" id="repo-select">
+              <option value="">Choose a repository...</option>
+            </select>
+          </div>
+
+          <div class="checkbox-group">
+            <input type="checkbox" class="checkbox" id="all-repos">
+            <label for="all-repos">Summarize all repositories</label>
+          </div>
+
+          <button class="btn btn-primary" id="process-selected-btn">Process Selected</button>
+        </div>
+      </div>
 
       <div id="analyze-status" class="status-area"></div>
       <div id="analyze-results" class="results-area"></div>
+    </div>
+
+    <!-- Summary View Tab (New) -->
+    <div id="summary-view-tab" class="tab-content">
+      <div class="summary-header">
+        <button class="back-btn" id="back-to-analyze">&times;</button>
+        <h3>Repository Summaries</h3>
+      </div>
+
+      <div class="search-container">
+        <input type="text" class="search-input" placeholder="Search repositories or keywords..." id="summary-search-input">
+      </div>
+
+      <!-- Filter Tabs -->
+      <div class="filter-tabs">
+        <button class="filter-tab active" data-filter="all">All Repos</button>
+        <button class="filter-tab" data-filter="recent">Recent</button>
+        <button class="filter-tab" data-filter="favorites">Favorites</button>
+        <button class="filter-tab" data-filter="keywords">By Keywords</button>
+      </div>
+
+      <!-- Summary List -->
+      <div class="summary-list" id="summary-list">
+        <!-- Summary items will be inserted here -->
+      </div>
+
+      <!-- Selected Repository Details -->
+      <div class="repo-details" id="repo-details" style="display: none;">
+        <div class="details-header">
+          <h4 id="selected-repo-name">Repository Details</h4>
+          <button class="btn btn-secondary btn-small" id="ask-question-btn">Ask Question</button>
+        </div>
+
+        <div class="tree-container">
+          <div class="tree-title">Repository Structure</div>
+          <div id="summary-tree-diagram" class="mermaid-container"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Query Tab -->
